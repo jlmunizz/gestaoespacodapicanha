@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cada conta acessa apenas seus próprios dados.
+    // Para vários computadores, entre com a MESMA conta.
+    match /restaurantes/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

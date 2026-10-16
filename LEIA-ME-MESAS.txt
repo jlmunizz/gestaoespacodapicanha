@@ -1,0 +1,8 @@
+ALTERAÇÕES VISUAIS NAS MESAS
+- Mesas maiores, com números mais legíveis.
+- Mesas ocupadas destacadas em vermelho vivo com texto branco.
+- Legenda de ocupadas agora vermelha.
+- Grade adaptada a telas grandes e pequenas.
+- Funcionalidades de caixa, Firebase, balança, impressão e atalhos mantidas.
+
+IMPORTANTE: mantenha seu firebase-config.js funcional da versão anterior.

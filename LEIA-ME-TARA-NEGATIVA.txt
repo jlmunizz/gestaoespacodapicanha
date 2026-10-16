@@ -1,0 +1,9 @@
+TOLEDO PRIX 3 FIT — TARA NEGATIVA / LANÇAMENTO AUTOMÁTICO
+
+Quando a balança devolve NNNNN no protocolo Prt5, o sistema reconhece peso negativo, mas NÃO conhece seu valor exato. Três leituras negativas consecutivas rearmam o ciclo para a próxima pesagem; nenhum valor negativo é lançado. Após recolocar o prato com alimento, são necessárias três leituras positivas iguais para lançar o peso líquido na mesa selecionada.
+
+Antes de vender, teste: (1) retirar o prato: indicar tara negativa, sem lançamento; (2) recolocar prato vazio: indicar zero, sem lançamento; (3) colocar alimento: lançar uma vez; (4) manter o prato parado: não lançar de novo; (5) retirar prato e repetir.
+
+ATENÇÃO: a balança pode transmitir NNNNN sem o número negativo; isso não permite calcular uma tara nova automaticamente. A função Preparar com tara só deve ser usada com uma leitura numérica válida e recipiente vazio. Verifique peso conhecido e comunicação física antes de cobrar clientes.
+
+Mantenha o firebase-config.js real já configurado.

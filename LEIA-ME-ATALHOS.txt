@@ -1,0 +1,10 @@
+ATALHOS DE TECLADO — ESPAÇO DA PICANHA
+
+Na aba Mesas e pedidos, com a grade de mesas aberta:
+- Digite 1 até 100 e pressione Enter para abrir a mesa.
+- Backspace corrige o número antes de abrir.
+- Escape limpa o número digitado.
+- Dentro de uma mesa, Escape volta para a grade.
+
+Os atalhos não interferem em campos de formulário, no login ou nas outras abas.
+Mantenha seu firebase-config.js real ao substituir o projeto.

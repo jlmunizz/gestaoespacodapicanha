@@ -1,0 +1,14 @@
+ESPAÇO DA PICANHA — TOLEDO PRIX 3 FIT — PORTA COM VARIÁVEL
+
+1. Abra a pasta no VS Code e use Live Server com Chrome ou Edge.
+2. Preserve seu firebase-config.js funcional. O ZIP contém configuração de exemplo.
+3. Conecte o cabo RS-232/USB e verifique no Gerenciador de Dispositivos a porta COM.
+4. Entre em uma mesa, clique em Conectar balança e escolha a porta do adaptador na janela do navegador.
+5. A porta pode ser COM3, COM4, COM5 etc.; não há COM fixa no código.
+6. A configuração serial é 2400 baud, 8 bits, sem paridade, 1 bit de parada.
+7. A leitura atual assume protocolo Prt5 e solicitação ENQ. Se não houver peso, confirme o protocolo da balança.
+8. Ao trocar de computador, instale o driver do adaptador, se necessário, e autorize a nova porta.
+9. O status indica conectada/desconectada; ao remover o cabo, reconecte manualmente.
+10. A leitura do peso deve ser confirmada pelo operador antes de lançar o produto.
+
+IMPORTANTE: integração não testada com hardware físico. Confira a pesagem com um peso conhecido antes de usar em vendas.

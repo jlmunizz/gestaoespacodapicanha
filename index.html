@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espaço da Picanha | Gestão de Restaurante</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="cloudLogin" class="cloud-login">
+  <div class="cloud-login-card">
+    <h2>Espaço da Picanha</h2>
+    <p>Entre na sua conta para sincronizar mesas, pedidos, produtos, vendas e caixa na nuvem.</p>
+    <label for="cloudEmail">E-mail</label><input id="cloudEmail" type="email" autocomplete="username" placeholder="seu@email.com">
+    <label for="cloudPassword">Senha</label><input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Mínimo de 6 caracteres">
+    <div class="cloud-login-actions"><button id="cloudSignIn" class="button">Entrar</button><button id="cloudSignUp" class="button secondary">Criar conta</button></div>
+    <p id="cloudLoginMessage" role="status"></p>
+    <small>Antes do primeiro uso, configure <code>firebase-config.js</code>, ative Authentication (E-mail/Senha) e Cloud Firestore no Firebase e publique as regras de <code>firestore.rules</code>.</small>
+  </div>
+</div>
+<header class="topbar">
+  <div class="brand-area">
+    <div class="brand-title"><h1>Espaço da Picanha</h1><p>Gestão de restaurante • Mesas, pedidos, pesagem e pagamentos</p></div>
+    <span class="brand-divider" aria-hidden="true"></span>
+    <img class="restaurant-logo" src="logo-espaco-da-picanha.jpeg" alt="Logo Espaço da Picanha Churrascaria">
+  </div>
+  <div class="header-actions"><span id="cloudStatus" class="cloud-status">Nuvem desconectada</span><button id="cloudSignOut" class="button secondary" hidden>Sair</button><div id="currentDate" class="date"></div></div>
+</header>
+<nav class="tabs" aria-label="Navegação principal">
+  <button class="tab-button active" data-tab="operation">Mesas e pedidos</button>
+  <button class="tab-button" data-tab="productsTab">Produtos cadastrados</button>
+  <button class="tab-button" data-tab="cashTab">Abrir / fechar caixa</button>
+  <button class="tab-button" data-tab="reportsTab">Relatórios</button>
+</nav>
+<main class="layout">
+  <div id="operation" class="tab-view active">
+    <section id="tablesPanel" class="panel">
+      <div class="section-heading"><h2>Mesas</h2><span class="pill">100 mesas</span></div>
+      <div class="legend"><span><i class="dot free"></i> Livre</span><span><i class="dot busy"></i> Ocupada</span><span><i class="dot selected"></i> Selecionada</span></div>
+      <div class="keyboard-hint">Atalho: digite o número da mesa e pressione <kbd>Enter</kbd> para abrir. <kbd>Esc</kbd> volta às mesas. <span id="tableShortcutDisplay" role="status" aria-live="polite"></span></div>
+      <div id="tables" class="tables"></div>
+      <div class="summary-cards">
+        <div class="summary-card"><span>Mesas ocupadas</span><strong id="busyCount">0</strong></div>
+        <div class="summary-card"><span>Total em aberto</span><strong id="openTotal">R$ 0,00</strong></div>
+      </div>
+    </section>
+    <section id="orderPanel" class="panel order-panel" hidden>
+      <div class="section-heading"><h2>Lançar pedido</h2><span id="selectedTable" class="pill blue">Nenhuma mesa</span></div>
+      <div id="orderPrompt" class="empty">Clique em uma mesa para abrir o pedido e lançar produtos.</div>
+      <div id="orderContent" hidden>
+        <div class="order-toolbar"><span class="muted">Pedido da mesa selecionada</span><button id="closeOrderPanel" class="button secondary" type="button">← Voltar às mesas</button></div>
+        <div class="weight-card">
+          <div><span class="muted">Leitura da balança</span><strong id="weightDisplay">— g</strong></div>
+          <p id="scaleConnectionStatus" role="status" style="color:#bd2525;font-weight:700">● Balança desconectada</p>
+          <div class="weight-actions"><button id="connectScale" class="button secondary">Conectar balança</button><button id="prepareTare" class="button secondary" type="button">Preparar com tara</button><button id="useWeight" class="button secondary" disabled>Usar peso lido</button><label style="display:flex;align-items:center;gap:7px;font-weight:700"><input id="autoScale" type="checkbox"> Lançamento automático</label></div>
+        </div>
+        <p id="scaleMessage" class="help">Toledo Prix 3 Fit: selecione a porta do adaptador no navegador (COM3, COM4 etc.). Configuração 2400 baud, 8N1, protocolo Prt5. Ative lançamento automático na mesa desejada. Aguarda 3 leituras iguais, exige retorno ao peso líquido zero ou à base vazia registrada entre pratos e registra apenas uma vez por pesagem. Confira o produto por kg selecionado.</p>
+        <section class="order-priority" aria-label="Itens lançados na mesa">
+        <h3 class="subheading">Itens da conta</h3>
+        <div id="orderItems" class="order-items"></div>
+        <div class="grand-total"><span>Total da mesa</span><strong id="tableTotal">R$ 0,00</strong></div>
+        </section>
+        <div class="field product-search-field"><label for="productSearch">Procurar produto</label><input id="productSearch" type="search" placeholder="Digite o nome do produto..." autocomplete="off"><small class="search-hint">Clique em um produto abaixo para lançá-lo imediatamente. Para lançar outro produto, clique nele. Após cada lançamento, o sistema retorna para Almoço no kg.</small></div>
+        <div class="category-toolbar"><div id="orderCategoryTabs" class="category-tabs" aria-label="Abas de produtos"></div></div>
+        <div id="quickProducts" class="quick-products" aria-label="Produtos para lançamento rápido"></div>
+        <div class="form-grid">
+          <div class="field"><label for="product">Produto encontrado</label><select id="product"></select></div>
+          <div class="field"><label for="price">Preço (R$ por kg/un.)</label><input id="price" type="number" min="0" step="0.01"></div>
+          <div class="field"><label for="unit">Tipo</label><select id="unit"><option value="kg">Por quilo (kg)</option><option value="un">Por unidade</option></select></div>
+          <div class="field"><label id="quantityLabel" for="quantity">Quantidade (kg)</label><input id="quantity" type="number" min="0.001" step="any" value="1" placeholder="Ex.: 1"></div>
+        </div>
+        <div class="calc-row"><span>Valor do item</span><strong id="itemValue">R$ 0,00</strong></div>
+        <section class="split-payment"><h3>Pagamentos da mesa</h3>
+        <div class="form-grid"><div class="field"><label for="paymentMethod">Forma de pagamento</label><select id="paymentMethod"><option>Dinheiro</option><option>Pix</option><option>Cartão</option></select></div>
+        <div class="field"><label for="amountPaid">Valor da parcela (R$)</label><input id="amountPaid" type="number" min="0.01" step="0.01" placeholder="Valor restante"></div></div>
+        <div class="cash-preview" id="cashPreview" aria-live="polite"><span>Troco em dinheiro</span><strong id="cashPreviewValue">R$ 0,00</strong></div><div class="button-row"><button id="fillRemaining" class="button secondary" type="button">Preencher restante (F2)</button><button id="addPayment" class="button secondary" type="button">+ Adicionar pagamento</button><button id="clearPayments" class="button secondary" type="button">Limpar pagamentos</button></div>
+        <div id="paymentParts"></div><div class="payment-summary">Pago: <strong id="paymentAdded">R$ 0,00</strong> | Falta: <strong id="paymentRemaining">R$ 0,00</strong> <span id="paymentChangeWrap" hidden> | Troco: <strong id="paymentChange">R$ 0,00</strong></span></div></section>
+        <div class="button-row"><button id="printBill" class="button secondary" type="button">🧾 Imprimir conta</button><button id="closeBill" class="button success">Fechar conta</button><button id="clearTable" class="button danger">Limpar mesa</button></div>
+        <p class="help">O sistema registra a forma de pagamento informada, mas não processa Pix nem cartões diretamente.</p>
+      </div>
+    </section>
+  </div>
+
+  <section id="productsTab" class="tab-view" hidden>
+    <section class="panel">
+      <h2>Cadastrar produto</h2>
+      <p class="muted">Cadastre aqui os produtos que aparecerão na pesquisa dentro de cada mesa.</p>
+      <div class="field"><label for="newProductName">Nome do produto</label><input id="newProductName" placeholder="Ex.: Self-service"></div>
+      <div class="form-grid">
+        <div class="field"><label for="newProductPrice">Preço</label><input id="newProductPrice" type="number" min="0" step="0.01" placeholder="59,90"></div>
+        <div class="field"><label for="newProductUnit">Venda por</label><select id="newProductUnit"><option value="kg">Quilo</option><option value="un">Unidade</option></select></div>
+      </div>
+      <div class="field"><label for="newProductCategory">Aba do produto</label><select id="newProductCategory"></select></div>
+      <button id="saveProduct" class="button primary wide">Cadastrar produto</button>
+    </section>
+    <section class="panel catalog-panel">
+      <div class="section-heading"><h2>Produtos cadastrados</h2><span id="productCount" class="pill">0 produtos</span></div>
+      <div class="category-manager"><div class="field"><label for="newCategoryName">Criar nova aba de produtos</label><input id="newCategoryName" maxlength="40" placeholder="Ex.: Bebidas, Sobremesas"></div><button id="addCategory" class="button secondary" type="button">+ Criar aba</button></div><div id="catalogCategoryTabs" class="category-tabs" aria-label="Filtrar cadastro por aba"></div>
+      <div class="field"><label for="catalogSearch">Pesquisar no cadastro</label><input id="catalogSearch" type="search" placeholder="Digite o nome do produto..."></div>
+      <div id="productCatalog" class="product-catalog"></div>
+      <section id="editProductPanel" class="product-edit-panel" hidden aria-label="Editar produto">
+        <h3>Editar produto cadastrado</h3>
+        <p class="muted">As alterações serão usadas nos próximos lançamentos. Itens já lançados e vendas anteriores não serão modificados.</p>
+        <div class="field"><label for="editProductName">Nome do produto</label><input id="editProductName" maxlength="120" autocomplete="off"></div>
+        <div class="form-grid">
+          <div class="field"><label for="editProductPrice">Preço (R$)</label><input id="editProductPrice" type="number" min="0" step="0.01" inputmode="decimal"></div>
+          <div class="field"><label for="editProductUnit">Venda por</label><select id="editProductUnit"><option value="kg">Quilo</option><option value="un">Unidade</option></select></div><div class="field"><label for="editProductCategory">Aba</label><select id="editProductCategory"></select></div>
+        </div>
+        <div class="product-edit-actions"><button id="confirmEditProduct" type="button" class="button primary">Salvar alterações</button><button id="cancelEditProduct" type="button" class="button secondary">Cancelar</button></div>
+      </section>
+    </section>
+  </section>
+
+  <section id="cashTab" class="tab-view" hidden>
+    <section class="panel">
+      <div class="section-heading"><h2>Controle diário de caixa</h2><span id="cashStatus" class="pill">Caixa fechado</span></div>
+      <p class="muted">Abra o caixa no início do expediente informando o troco inicial. Ao final, informe o dinheiro contado para comparar com o saldo esperado.</p>
+      <div id="cashOpenArea" class="cash-box">
+        <h3>Abertura do caixa</h3>
+        <div class="form-grid">
+          <div class="field"><label for="cashOperator">Responsável pelo caixa</label><input id="cashOperator" type="text" placeholder="Nome do operador"></div>
+          <div class="field"><label for="cashOpeningAmount">Fundo de troco inicial (R$)</label><input id="cashOpeningAmount" type="number" min="0" step="0.01" value="0"></div>
+        </div>
+        <button id="openCash" class="button primary">Abrir caixa</button>
+      </div>
+      <div id="cashActiveArea" class="cash-box" hidden>
+        <h3>Caixa aberto</h3>
+        <div class="cash-metrics">
+          <div class="summary-card"><span>Troco inicial</span><strong id="cashOpeningDisplay">R$ 0,00</strong></div>
+          <div class="summary-card"><span>Vendas em dinheiro</span><strong id="cashCashSales">R$ 0,00</strong></div>
+          <div class="summary-card"><span>Entradas / retiradas</span><strong id="cashMovementsTotal">R$ 0,00</strong></div>
+          <div class="summary-card"><span>Dinheiro esperado</span><strong id="cashExpected">R$ 0,00</strong></div>
+        </div>
+        <h3>Movimentação de caixa</h3>
+        <div class="form-grid">
+          <div class="field"><label for="cashMovementType">Tipo</label><select id="cashMovementType"><option value="in">Suprimento / entrada</option><option value="out">Sangria / retirada</option></select></div>
+          <div class="field"><label for="cashMovementAmount">Valor (R$)</label><input id="cashMovementAmount" type="number" min="0.01" step="0.01" placeholder="0,00"></div>
+        </div>
+        <div class="field"><label for="cashMovementNote">Motivo</label><input id="cashMovementNote" type="text" placeholder="Ex.: troco adicional, pagamento de despesa"></div>
+        <button id="addCashMovement" class="button secondary">Registrar movimentação</button>
+        <div id="cashMovementsList" class="cash-movements"></div>
+        <hr>
+        <h3>Fechamento do caixa</h3>
+        <div class="form-grid">
+          <div class="field"><label for="cashCountedAmount">Dinheiro contado no caixa (R$)</label><input id="cashCountedAmount" type="number" min="0" step="0.01" placeholder="Conte o dinheiro físico"></div>
+          <div class="field"><label for="cashClosingNote">Observações</label><input id="cashClosingNote" type="text" placeholder="Diferenças, ocorrências... "></div>
+        </div>
+        <p class="help">O fechamento compara o dinheiro contado com o esperado (troco inicial + vendas em dinheiro + entradas − retiradas). Pix e cartão não entram no dinheiro físico.</p>
+        <div id="cashClosingPreview" class="cash-closing-preview"></div>
+        <div class="button-row"><button id="printCashPreview" type="button" class="button secondary">Imprimir resumo parcial</button><button id="closeCash" class="button danger">Fechar caixa e imprimir resumo</button></div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="section-heading"><h2>Fechamentos anteriores</h2><button id="exportCashCsv" class="button secondary">Exportar histórico do caixa</button></div>
+      <div id="cashHistory" class="cash-history"></div>
+    </section>
+  </section>
+
+  <section id="reportsTab" class="tab-view" hidden>
+    <section class="panel">
+      <h2>Resumo de hoje</h2>
+      <div class="report-grid">
+        <div class="summary-card"><span>Dinheiro</span><strong id="cashTotal">R$ 0,00</strong></div>
+        <div class="summary-card"><span>Pix</span><strong id="pixTotal">R$ 0,00</strong></div>
+        <div class="summary-card"><span>Cartão</span><strong id="cardTotal">R$ 0,00</strong></div>
+        <div class="summary-card"><span>Vendas fechadas</span><strong id="salesCount">0</strong></div>
+      </div>
+      <button id="exportCsv" class="button secondary wide">Exportar vendas CSV</button>
+      <button id="showHistory" class="button secondary wide">Resumo histórico</button>
+      <button id="printLastSale" class="button secondary wide" type="button">🧾 Reimprimir última venda</button>
+    </section>
+    <section class="panel" id="cloudCashReports">
+      <h2>Caixas registrados na nuvem</h2>
+      <p class="muted">Consulte aberturas e fechamentos sem imprimir. Os registros são sincronizados pelo Firebase quando a conexão estiver ativa.</p>
+      <div class="form-grid">
+        <div class="field"><label for="cashReportSearch">Buscar operador ou data</label><input id="cashReportSearch" type="search" placeholder="Ex.: João ou 16/10/2026"></div>
+        <div class="field"><label for="cashReportFilter">Situação</label><select id="cashReportFilter"><option value="all">Todos os caixas</option><option value="closed">Fechados</option><option value="open">Em aberto</option></select></div>
+      </div>
+      <div id="cloudCashReportStatus" class="muted"></div>
+      <div id="cloudCashReportList" class="cloud-cash-list"></div>
+      <div id="cloudCashReportDetail" class="cloud-cash-detail" hidden></div>
+    </section>
+  </section>
+</main>
+<footer>Dados na nuvem pelo Firebase. Faça backups e valide a compatibilidade da balança antes de usar no caixa real.</footer>
+<script type="module">
+  import {initializeApp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
+  import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+  import {getFirestore,doc,getDoc,setDoc,onSnapshot,serverTimestamp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+  window.firebaseModules={initializeApp,getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,getFirestore,doc,getDoc,setDoc,onSnapshot,serverTimestamp};
+  window.dispatchEvent(new Event('firebase-modules-ready'));
+</script>
+<script src="firebase-config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

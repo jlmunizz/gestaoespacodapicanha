@@ -1,0 +1,10 @@
+ESPAÇO DA PICANHA — EDIÇÃO DE PRODUTOS
+
+Na aba Produtos cadastrados, clique em EDITAR ao lado do produto.
+Altere nome, preço ou tipo de venda (quilo/unidade) e clique em SALVAR ALTERAÇÕES.
+Também é possível cancelar sem salvar.
+
+A edição é salva no armazenamento local e sincronizada com o Firebase quando conectado.
+Itens já lançados nas mesas e vendas antigas permanecem com os valores originais.
+
+IMPORTANTE: Preserve seu firebase-config.js real ao atualizar.

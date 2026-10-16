@@ -1,0 +1,11 @@
+TOLEDO PRIX 3 FIT — PESAGEM COM TARA
+
+1. Conecte a balança e abra uma mesa.
+2. Selecione produto por kg e ative Lançamento automático.
+3. Se usar a tecla TARA da própria balança, com recipiente vazio o peso líquido deve ser 0,000 kg. O sistema arma após três leituras de zero e lança somente o peso líquido estável.
+4. Se o equipamento mostrar peso positivo mesmo com recipiente vazio, clique Preparar com tara com o recipiente VAZIO. O sistema registra a base e lança apenas a diferença positiva.
+5. Para outro item, retire o alimento e volte ao mesmo peso base por três leituras. Se mudar o recipiente/tara, clique Preparar com tara novamente.
+6. Se a balança não transmitir leitura enquanto a tara estiver ativada, o protocolo/configuração do equipamento precisa ser diagnosticado; a interface não consegue inventar uma leitura ausente.
+7. Teste com pesos conhecidos antes de usar em vendas. Confira se um prato produz somente um lançamento.
+
+Mantenha seu firebase-config.js já configurado ao substituir o projeto.

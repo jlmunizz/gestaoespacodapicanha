@@ -1,0 +1,10 @@
+FECHAMENTO DETALHADO DE CAIXA — ESPAÇO DA PICANHA
+
+Na aba Abrir / fechar caixa, confira o resumo detalhado antes de encerrar.
+O resumo separa dinheiro, Pix e cartão, incluindo pagamentos múltiplos, vendas, fundo inicial, suprimentos, sangrias, dinheiro esperado, contado e diferença.
+Digite o dinheiro contado; a diferença é atualizada na tela.
+"Imprimir resumo parcial" imprime sem fechar o caixa.
+"Fechar caixa e imprimir resumo" salva o fechamento e abre o cupom de 80 mm para impressão.
+O histórico tem botão "Imprimir resumo" para segunda via.
+Autorize pop-ups no Chrome/Edge. O resumo não é documento fiscal.
+Preserve o firebase-config.js com suas credenciais.

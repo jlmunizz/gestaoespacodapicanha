@@ -1,0 +1,8 @@
+ABAS DE PRODUTOS — ESPAÇO DA PICANHA
+
+A aba Principal já aparece aberta no pedido e contém todos os produtos antigos.
+Na aba Produtos cadastrados, use Criar nova aba para definir nomes como Bebidas, Sobremesas etc.
+Ao cadastrar ou editar um produto, escolha em qual aba ele ficará.
+As abas aparecem dentro da mesa acima dos produtos vermelhos.
+Os nomes e as categorias dos produtos são sincronizados no mesmo documento do Firebase.
+Preserve seu firebase-config.js que já funciona.

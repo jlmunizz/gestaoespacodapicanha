@@ -1,0 +1,13 @@
+LANÇAMENTO AUTOMÁTICO - TOLEDO PRIX 3 FIT
+
+1. Abra index.html no Chrome ou Edge usando Live Server.
+2. Preserve o firebase-config.js da sua instalação funcional.
+3. Abra uma mesa, escolha o produto POR KG e confira o preço.
+4. Conecte a balança e selecione a porta USB/serial.
+5. Ative "Lançamento automático".
+6. Retire o prato e espere a balança transmitir ZERO.
+7. Coloque o prato. Após 3 leituras estáveis idênticas, o item é lançado na mesa aberta.
+8. Retire o prato e aguarde ZERO para permitir a próxima pesagem.
+
+SEGURANÇA: não lança sem mesa aberta, com produto por unidade, peso instável, leitura expirada ou aba oculta. A troca de mesa exige novo zero.
+AVISO: protocolo Prt5 e estabilidade devem ser confirmados na balança física antes do uso comercial. Teste com peso conhecido.

@@ -1,0 +1,1 @@
+Selecione Dinheiro, Pix ou Cartão, informe o valor e clique em Adicionar pagamento. Repita para dividir a conta. Só fecha após cobrir o total. Troco em dinheiro. Preserve firebase-config.js. Pagamentos não são processados pelo sistema.

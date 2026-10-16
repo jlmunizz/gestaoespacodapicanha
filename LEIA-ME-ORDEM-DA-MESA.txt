@@ -1,0 +1,8 @@
+ALTERACAO VISUAL DA MESA
+
+1. Leitura da balanca no topo, fixa durante a rolagem da tela da mesa.
+2. Itens ja lancados e total da mesa logo abaixo.
+3. Pesquisa, produtos e campos de lancamento na sequencia.
+4. Logica de balanca, tara, lancamento, pagamentos e Firebase preservada.
+
+IMPORTANTE: preserve seu firebase-config.js com suas credenciais reais.

@@ -1,0 +1,12 @@
+ESPAÇO DA PICANHA - VERSÃO PARA VS CODE
+
+1. Abra esta pasta no VS Code.
+2. Se o seu firebase-config.js antigo já funciona, copie-o para esta pasta e NÃO precisa fazer mais configuração.
+3. Caso contrário, abra CONFIGURAR-FIREBASE.html no navegador. Cole o objeto firebaseConfig que o Firebase Console fornece e baixe o firebase-config.js gerado. Substitua o arquivo de exemplo desta pasta.
+4. Use Live Server para abrir index.html.
+5. Confira Authentication (E-mail/Senha), Firestore e regras publicadas.
+6. Para GitHub Pages, envie os arquivos da pasta (não o ZIP) e autorize SEU-USUARIO.github.io em Authentication > Settings > Authorized domains.
+
+O arquivo firebase-config.js no ZIP vem com placeholders: ninguém além de você pode informar os valores reais do seu projeto.
+NÃO envie senhas nem credenciais de conta de serviço.
+ATENÇÃO: este projeto armazena o estado conjunto da operação em um documento Firestore por usuário. Não é indicado para vários caixas simultâneos sem melhorias de concorrência e controle de acesso.

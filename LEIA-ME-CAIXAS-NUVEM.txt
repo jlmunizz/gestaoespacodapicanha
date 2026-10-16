@@ -1,0 +1,8 @@
+RELATÓRIOS — HISTÓRICO DE CAIXAS EM NUVEM
+
+Abra Relatórios > Caixas registrados na nuvem.
+Pesquise por operador ou data, filtre por caixas abertos/fechados e clique em Ver detalhes.
+O resumo mostra pagamentos por modalidade, fundo inicial, movimentações, esperado, contado e diferença, sem imprimir.
+Os dados são os mesmos do histórico de caixas que já é salvo no estado do Firebase Firestore. Não cria outro banco.
+A consulta requer login e sincronização para apresentar dados atualizados da nuvem; sem conexão, mostra os dados disponíveis localmente.
+Preserve seu firebase-config.js funcional.

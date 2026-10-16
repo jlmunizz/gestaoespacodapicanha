@@ -1,0 +1,17 @@
+CUPOM PERSONALIZADO — ESPAÇO DA PICANHA
+
+Incluído nos cupons de conferência e pagamento:
+- Logo existente no projeto (logo-espaco-da-picanha.jpeg)
+- Nome ESPAÇO DA PICANHA
+- CNPJ 12.994.997/0001-21 (informado pelo usuário)
+- Mensagem: Obrigado pela preferência! Volte sempre!
+- Identificação de DOCUMENTO NÃO FISCAL
+
+Para alterar nome, CNPJ ou agradecimento, edite RECEIPT_COMPANY no arquivo script.js.
+Para substituir a imagem, mantenha o nome logo-espaco-da-picanha.jpeg.
+
+Abra o sistema com Live Server no Chrome/Edge e permita janelas pop-up para impressão.
+Selecione bobina 80mm nas opções da impressora e confira a prévia.
+
+IMPORTANTE: mantenha o firebase-config.js com os dados válidos da sua conta.
+O arquivo incluído no ZIP pode ser apenas um modelo.

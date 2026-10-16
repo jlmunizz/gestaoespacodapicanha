@@ -1,0 +1,4 @@
+Dinheiro: digite o valor recebido para visualizar o troco.
+Clique em Preencher restante ou pressione F2 na tela de pedidos para preencher o saldo da conta.
+Clique em Adicionar pagamento para registrar a parcela.
+Preserve seu firebase-config.js.

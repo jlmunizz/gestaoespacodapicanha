@@ -1,0 +1,1 @@
+A leitura da balança e seus controles foram movidos para acima da pesquisa e da lista de produtos. Nenhuma lógica JavaScript foi alterada. Preserve seu firebase-config.js funcional.
