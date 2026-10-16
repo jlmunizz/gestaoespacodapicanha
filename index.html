@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Espaço da Picanha | Gestão de Restaurante</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="#a90d1b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Espaço da Picanha">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,7 +30,7 @@
     <span class="brand-divider" aria-hidden="true"></span>
     <img class="restaurant-logo" src="logo-espaco-da-picanha.jpeg" alt="Logo Espaço da Picanha Churrascaria">
   </div>
-  <div class="header-actions"><span id="cloudStatus" class="cloud-status">Nuvem desconectada</span><button id="cloudSignOut" class="button secondary" hidden>Sair</button><div id="currentDate" class="date"></div></div>
+  <div class="header-actions"><button id="installApp" class="button secondary" type="button" hidden>Instalar aplicativo</button><span id="cloudStatus" class="cloud-status">Nuvem desconectada</span><button id="cloudSignOut" class="button secondary" hidden>Sair</button><div id="currentDate" class="date"></div></div>
 </header>
 <nav class="tabs" aria-label="Navegação principal">
   <button class="tab-button active" data-tab="operation">Mesas e pedidos</button>
@@ -192,5 +198,6 @@
 </script>
 <script src="firebase-config.js"></script>
 <script src="script.js"></script>
+<script src="install-app.js" defer></script>
 </body>
 </html>

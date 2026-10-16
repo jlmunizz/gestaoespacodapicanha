@@ -1,0 +1,14 @@
+ESPAÇO DA PICANHA — INSTALAR COMO APLICATIVO COM LOGO
+
+1. Substitua os arquivos do site pelos arquivos deste ZIP, mas PRESERVE seu firebase-config.js configurado.
+2. Publique no GitHub Pages (ou outro servidor HTTPS) e aguarde a atualização.
+3. Abra a URL publicada no Chrome ou Edge.
+4. Se aparecer o botão "Instalar aplicativo" no topo, clique nele e confirme.
+5. Alternativa no Edge: menu ... > Aplicativos > Instalar este site como aplicativo.
+   No Chrome: menu ... > Transmitir, salvar e compartilhar > Instalar página como app (ou Criar atalho).
+6. Se necessário, use o menu do Windows para fixar na barra de tarefas ou criar atalho na área de trabalho.
+
+O ícone foi criado a partir da logo fornecida pelo restaurante.
+O site precisa de HTTPS (ou localhost) para instalação PWA. Live Server localhost permite testar.
+O programa não fica disponível offline: Firebase e operações do caixa exigem conexão.
+Não há login automático: a autenticação continua protegida pelo Firebase.
