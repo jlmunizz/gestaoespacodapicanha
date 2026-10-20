@@ -1107,10 +1107,97 @@ prepararFiscalAoFecharMesa(vendaFinalizada, sales.length - 1)
   });
 });
 
-$('clearTable').addEventListener('click',()=>{
-  const t=table();if(!t.items.length){alert('Esta mesa já está vazia.');return;}
-  if(confirm(`Apagar os itens da Mesa ${pad(selectedTableId)} sem registrar venda?`)){t.items=[];save();render();}
+
+$('clearTable').addEventListener('click', () => {
+  const t = table();
+
+  if (!t || !t.items.length) {
+    alert('Esta mesa já está vazia.');
+    return;
+  }
+
+  const mesaId = selectedTableId;
+
+  document.getElementById('modalLimparMesa')?.remove();
+
+  const fundo = document.createElement('div');
+  fundo.id = 'modalLimparMesa';
+
+  fundo.style.cssText = `
+    position:fixed;
+    inset:0;
+    z-index:100001;
+    background:rgba(0,0,0,.85);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+  `;
+
+  fundo.innerHTML = `
+    <div style="
+      width:100%;
+      max-width:420px;
+      background:#181818;
+      color:#fff;
+      border:1px solid #e50920;
+      border-radius:14px;
+      padding:25px;
+      box-sizing:border-box;
+    ">
+      <h2 style="color:#ff404a;margin-top:0">
+        Limpar mesa
+      </h2>
+
+      <p>Deseja apagar todos os itens da Mesa ${pad(mesaId)}?</p>
+
+      <p style="color:#ff9b9b">
+        Atenção: os produtos serão removidos sem registrar venda.
+      </p>
+
+      <div style="display:flex;gap:10px;margin-top:24px">
+        <button id="cancelarLimpezaMesa" type="button"
+          style="flex:1;padding:12px">
+          Cancelar
+        </button>
+
+        <button id="confirmarLimpezaMesa" type="button"
+          style="
+            flex:1;
+            padding:12px;
+            background:#c81020;
+            color:white;
+            border:0;
+            border-radius:8px;
+            font-weight:bold;
+            cursor:pointer;
+          ">
+          Apagar itens
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(fundo);
+
+  fundo.querySelector('#cancelarLimpezaMesa').onclick = () => {
+    fundo.remove();
+  };
+
+  fundo.querySelector('#confirmarLimpezaMesa').onclick = () => {
+    if (selectedTableId !== mesaId) {
+      fundo.remove();
+      alert('A mesa selecionada mudou. Tente novamente.');
+      return;
+    }
+
+    t.items = [];
+    save();
+    render();
+    fundo.remove();
+  };
 });
+
 $('openCash').addEventListener('click',()=>{
   if(activeCash){alert('Já existe um caixa aberto.');return;}
   const openingText=$('cashOpeningAmount').value;
