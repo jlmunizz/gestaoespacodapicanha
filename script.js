@@ -2294,7 +2294,7 @@ async function prepararFiscalAoFecharMesa(venda, indice) {
 
     campo('cancelarTransferencia').onclick = () => fundo.remove();
 
-    campo('confirmarTransferencia').onclick = () => {
+    campo('confirmarTransferencia').onclick = async () => {
       const destinoId = Number(campo('transferirDestino').value);
       const destino = tables.find(t => t.id === destinoId);
 
@@ -2341,12 +2341,74 @@ async function prepararFiscalAoFecharMesa(venda, indice) {
 
       const destinoOcupado = destino.items.length > 0;
 
-      if (!confirm(
-        `Transferir da Mesa ${origem.id} para a Mesa ${destino.id}?\n` +
-        (destinoOcupado
-          ? 'A mesa de destino está ocupada. Os itens serão acrescentados.'
-          : 'A mesa de destino está livre.')
-      )) return;
+     
+const confirmado = await new Promise(resolve => {
+  const janela = document.createElement('div');
+
+  janela.style.cssText = `
+    position:fixed;
+    inset:0;
+    z-index:100001;
+    background:rgba(0,0,0,.85);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+  `;
+
+  janela.innerHTML = `
+    <div style="
+      width:100%;
+      max-width:420px;
+      background:#181818;
+      color:#fff;
+      border:1px solid #e50920;
+      border-radius:14px;
+      padding:25px;
+      box-sizing:border-box;
+    ">
+      <h2 style="color:#ff404a;margin-top:0">
+        Confirmar transferência
+      </h2>
+
+      <p>Transferir da Mesa ${origem.id}
+      para a Mesa ${destino.id}?</p>
+
+      <p>${destinoOcupado
+        ? 'A mesa de destino está ocupada. Os itens serão acrescentados.'
+        : 'A mesa de destino está livre.'}</p>
+
+      <div style="display:flex;gap:10px;margin-top:24px">
+        <button id="cancelarConfirmacaoTransferencia"
+          type="button" style="flex:1;padding:12px">
+          Cancelar
+        </button>
+
+        <button id="aceitarConfirmacaoTransferencia"
+          type="button"
+          style="flex:1;padding:12px;background:#c81020;color:white;border:0;border-radius:8px">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(janela);
+
+  function finalizar(resposta) {
+    janela.remove();
+    resolve(resposta);
+  }
+
+  janela.querySelector('#cancelarConfirmacaoTransferencia')
+    .onclick = () => finalizar(false);
+
+  janela.querySelector('#aceitarConfirmacaoTransferencia')
+    .onclick = () => finalizar(true);
+});
+
+if (!confirmado) return;
+
 
       const backupOrigem = structuredClone(origem.items);
       const backupDestino = structuredClone(destino.items);
@@ -2386,7 +2448,7 @@ async function prepararFiscalAoFecharMesa(venda, indice) {
         save();
         fundo.remove();
         render();
-        alert('Transferência realizada com sucesso!');
+        
       } catch (erro) {
         origem.items = backupOrigem;
         destino.items = backupDestino;
