@@ -943,10 +943,123 @@ function printReceipt(data, isPaid=false){
   </style></head><body><img class="receipt-logo" src="${esc(logoUrl)}" alt="Logo Espaço da Picanha"><h1>${esc(RECEIPT_COMPANY.name)}</h1><p class="company-info">CNPJ: ${esc(RECEIPT_COMPANY.cnpj)}</p><div class="rule"></div><h2>${isPaid?'COMPROVANTE DE CONTA':'CONFERÊNCIA DE CONTA'}</h2><p>Mesa ${pad(data.table)} • ${esc(date)}</p><div class="rule"></div><table><thead><tr><th>Produto</th><th class="right">Qtd.</th><th class="right">Valor</th></tr></thead><tbody>${rows}</tbody></table><div class="rule"></div><div class="line total"><span>TOTAL</span><span>${money(total)}</span></div>${payment}<div class="rule"></div><p class="thanks">${esc(RECEIPT_COMPANY.thanks)}</p><p class="note">DOCUMENTO NÃO FISCAL<br>${isPaid?'Pagamento registrado':'Conferência de consumo — pagamento pendente'}</p><script>window.addEventListener('load',()=>{const img=document.querySelector('.receipt-logo');const ready=img&&img.complete?Promise.resolve():new Promise(resolve=>{if(!img)return resolve();img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});setTimeout(resolve,1800)});ready.then(()=>setTimeout(()=>window.print(),250))});<\/script></body></html>`);
   win.document.close();
 }
-$('printBill').addEventListener('click',()=>{
-  const t=table();if(!t)return;
-  printReceipt({table:t.id,items:t.items.map(item=>({...item})),total:tableTotal(t)},false);
+
+$('printBill').addEventListener('click', () => {
+  const t = table();
+  if (!t) return;
+
+  const dados = {
+    table: t.id,
+    items: t.items.map(item => ({ ...item })),
+    total: tableTotal(t)
+  };
+
+  if (!dados.items.length) {
+    alert('Não há itens para imprimir.');
+    return;
+  }
+
+  document.getElementById('previewCupomMesa')?.remove();
+
+  const fundo = document.createElement('div');
+  fundo.id = 'previewCupomMesa';
+  fundo.style.cssText = `
+    position:fixed;
+    inset:0;
+    z-index:100002;
+    background:rgba(0,0,0,.85);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:16px;
+  `;
+
+  const janela = document.createElement('div');
+  janela.style.cssText = `
+    background:#181818;
+    color:white;
+    border:1px solid #e50920;
+    border-radius:14px;
+    padding:24px;
+    width:100%;
+    max-width:440px;
+    max-height:90vh;
+    overflow:auto;
+    box-sizing:border-box;
+  `;
+
+  const titulo = document.createElement('h2');
+  titulo.textContent = 'Cupom — Mesa ' + pad(dados.table);
+  titulo.style.color = '#ff404a';
+
+  const resumo = document.createElement('div');
+  resumo.style.cssText = `
+    background:white;
+    color:black;
+    padding:16px;
+    border-radius:8px;
+    font-family:monospace;
+    font-size:13px;
+  `;
+
+  const cabecalho = document.createElement('h3');
+  cabecalho.textContent = 'ESPAÇO DA PICANHA';
+  cabecalho.style.textAlign = 'center';
+  resumo.appendChild(cabecalho);
+
+  const subtitulo = document.createElement('p');
+  subtitulo.textContent = 'Mesa ' + pad(dados.table) + ' — Conferência de consumo';
+  resumo.appendChild(subtitulo);
+
+  dados.items.forEach(item => {
+    const linha = document.createElement('p');
+    const unidade = item.unit === 'kg' ? 'kg' : 'un.';
+    linha.textContent =
+      item.name + ' | ' + item.quantity + ' ' + unidade +
+      ' | ' + money(item.total);
+    resumo.appendChild(linha);
+  });
+
+  const total = document.createElement('h3');
+  total.textContent = 'TOTAL: ' + money(dados.total);
+  resumo.appendChild(total);
+
+  const botoes = document.createElement('div');
+  botoes.style.cssText = `
+    display:flex;
+    gap:10px;
+    margin-top:20px;
+  `;
+
+  const cancelar = document.createElement('button');
+  cancelar.type = 'button';
+  cancelar.textContent = 'Cancelar';
+  cancelar.className = 'button secondary';
+  cancelar.style.flex = '1';
+
+  const imprimir = document.createElement('button');
+  imprimir.type = 'button';
+  imprimir.textContent = 'Imprimir cupom';
+  imprimir.className = 'button';
+  imprimir.style.cssText = `
+    flex:1;
+    background:#c81020;
+    color:white;
+  `;
+
+  cancelar.onclick = () => fundo.remove();
+
+  imprimir.onclick = () => {
+    fundo.remove();
+    printReceipt(dados, false);
+  };
+
+  botoes.append(cancelar, imprimir);
+  janela.append(titulo, resumo, botoes);
+  fundo.appendChild(janela);
+  document.body.appendChild(fundo);
 });
+
 $('printLastSale').addEventListener('click',()=>{
   const last=sales[sales.length-1];
   if(!last){alert('Ainda não há vendas finalizadas para reimprimir.');return;}
