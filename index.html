@@ -54,7 +54,23 @@
       <div class="section-heading"><h2>Lançar pedido</h2><span id="selectedTable" class="pill blue">Nenhuma mesa</span></div>
       <div id="orderPrompt" class="empty">Clique em uma mesa para abrir o pedido e lançar produtos.</div>
       <div id="orderContent" class="mesa-layout-novo" hidden>
-        <div class="order-toolbar"><span class="muted">Pedido da mesa selecionada</span><button id="closeOrderPanel" class="button secondary" type="button">← Voltar às mesas</button></div>
+        
+<div class="order-toolbar">
+  <span class="muted">Pedido da mesa selecionada</span>
+
+  <button id="openTransferModal"
+          class="button secondary"
+          type="button">
+    ⇄ Transferir mesa / itens
+  </button>
+
+  <button id="closeOrderPanel"
+          class="button secondary"
+          type="button">
+    ← Voltar às mesas
+  </button>
+</div>
+
         <div class="weight-card">
           <div><span class="muted">Leitura da balança</span><strong id="weightDisplay">— g</strong></div>
           <p id="scaleConnectionStatus" role="status" style="color:#bd2525;font-weight:700">● Balança desconectada</p>
@@ -87,7 +103,7 @@
     </section>
   </div>
 
-  <section id="productsTab" class="tab-view" hidden>d
+  <section id="productsTab" class="tab-view" hidden>
     <section class="panel">
       <h2>Cadastrar produto</h2>
       <p class="muted">Cadastre aqui os produtos que aparecerão na pesquisa dentro de cada mesa.</p>
@@ -318,6 +334,5 @@
 <script src="script.js"></script>
 </body>
 </html>
-</body>
-</html>
+
 
