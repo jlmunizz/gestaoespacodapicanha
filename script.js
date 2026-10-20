@@ -1,4 +1,7 @@
-'use strict';
+﻿'use strict';
+function gerarIdProduto() {
+  return crypto.randomUUID();
+}
 const money = n => Number(n || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 const defaultProducts = [
   {name:'Self-service', price:59.90, unit:'kg'},
@@ -133,6 +136,59 @@ async function initializeCloud(){
   }catch(error){cloudMessage('Falha ao iniciar Firebase: '+error.message,true);cloudStatus('Falha na configuração');}
 }
 
+async function consultarNumeracaoFiscal() {
+
+
+
+
+  if (!cloudUser) {
+    throw new Error('Faça login antes de consultar.');
+  }
+
+  const token = await cloudUser.getIdToken();
+
+  const resposta = await fetch(
+    'http://localhost:3001/api/fiscal/numeracao-teste',
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+
+  if (!resposta.ok) {
+    throw new Error(
+      `Falha na consulta fiscal: HTTP ${resposta.status}`
+    );
+  }
+
+  return await resposta.json();
+} 
+const botaoFiscal = document.getElementById('btnTesteFiscal');
+
+console.log('Botão fiscal encontrado:', !!botaoFiscal);
+
+botaoFiscal?.addEventListener('click', async () => {
+  const resultado = document.getElementById('resultadoTesteFiscal');
+
+  if (!resultado) return;
+
+  resultado.textContent = 'Consultando Firebase...';
+
+  try {
+    const dados = await consultarNumeracaoFiscal();
+
+    resultado.textContent =
+      'Consulta realizada: ' + JSON.stringify(dados);
+
+  } catch (erro) {
+    resultado.textContent =
+      'Erro na consulta: ' + erro.message;
+  }
+});
+ 
+
 const esc = value => String(value).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
 function renderTables(){
@@ -246,13 +302,97 @@ $('addCategory').addEventListener('click',()=>{
   $('newCategoryName').value='';save();render();
   $('newProductCategory').value=name;
 });
+// Cadastro tributário: nenhuma classificação fiscal é presumida pelo sistema.
+const FISCAL_KEYS = ["ncm", "cfop", "csosn", "cest", "origem", "uTrib", "cstPis", "cstCofins", "cClassTrib"];
+const FISCAL_REQUIRED = ['ncm','cfop','csosn','origem','uTrib','cstPis','cstCofins'];
+function fiscalFieldId(prefix,key){return prefix+key[0].toUpperCase()+key.slice(1);}
+function readFiscalFields(prefix){const data={};for(const key of FISCAL_KEYS){const input=$(fiscalFieldId(prefix,key));data[key]=input?input.value.trim().toUpperCase():'';}return data;}
+function writeFiscalFields(prefix,data={}){for(const key of FISCAL_KEYS){const input=$(fiscalFieldId(prefix,key));if(input)input.value=data[key]||'';}}
+function fiscalIssues(data){
+ const errors=[];
+ for(const key of FISCAL_REQUIRED)if(!String(data[key]||'').trim())errors.push(key);
+ for(const [key,re] of Object.entries({ncm:/^\d{8}$/,cfop:/^\d{4}$/,csosn:/^\d{3}$/,cest:/^\d{7}$/,origem:/^[0-8]$/,uTrib:/^[A-Z]{1,6}$/,cstPis:/^\d{2}$/,cstCofins:/^\d{2}$/}))if(data[key]&&!re.test(data[key]))errors.push(key+' inválido');
+ return errors;
+}
+
+// Grupos operacionais, sem preenchimento automático de códigos tributários.
+const FISCAL_GROUPS=[
+ ['Produção própria — refeições',['Almoço no kg','Quentinha','Refeição','Quentinha 1']],
+ ['Produção própria — carnes e adicionais',['Carne Assada','Acrescimo de carne']],
+ ['Produção própria — sobremesas',['Doce','Brownie','Sobremesa','Sorvete Brigadeiro']],
+ ['Revenda — bebidas industrializadas lacradas',['Refrigerante Lata','Agua 500ml','Agua de Coco','Suco 300ml','Refrigerante 1L','H2oh 500ml','Amstel Ultra 600ml']],
+ ['Outras mercadorias',['Chaveiro']]
+];
+const normalizeFiscalName=n=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+function fiscalGroupFor(name){return FISCAL_GROUPS.find(([g,names])=>names.some(n=>normalizeFiscalName(n)===normalizeFiscalName(name)))?.[0]||null;}
+function fiscalPrepSummary(){const el=$('fiscalPrepSummary');if(el)el.textContent=`${products.filter(p=>fiscalGroupFor(p.name)).length} de ${products.length} produtos reconhecidos; códigos fiscais permanecem pendentes de validação.`;}
+function prepareFiscalProducts(){
+ if(!cloudReady||!cloudUser){alert('Entre no Firebase e aguarde carregar os dados antes de continuar.');return;}
+ const matches=products.map((p,i)=>({i,group:fiscalGroupFor(p.name)})).filter(x=>x.group);
+ const others=products.filter(p=>!fiscalGroupFor(p.name)).map(p=>p.name);
+ if(!matches.length){alert('Nenhum produto reconhecido. Confira os nomes.');return;}
+ const detail=matches.map(x=>products[x.i].name+' → '+x.group).join('\n');
+ if(!confirm(`Preparar ${matches.length} produtos?\n\n${detail}${others.length?'\n\nNão reconhecidos (inalterados): '+others.join(', '):''}\n\nSomente o grupo operacional será incluído. Preços, unidades, categorias, campos fiscais existentes, mesas e vendas serão preservados.`))return;
+ const backup=products.map(p=>({...p}));
+ for(const {i,group} of matches)products[i]={...products[i],fiscalPrep:{...products[i].fiscalPrep,group,validation:'Pendente de validação pelo contador'}};
+ try{save();}catch(e){products=backup;alert('Erro ao salvar: '+e.message);return;}
+ render();alert(`${matches.length} produtos preparados localmente. Aguarde o status Sincronizado na nuvem. Nenhum código fiscal foi atribuído.`);
+}
+$('prepareFiscalProducts')?.addEventListener('click',prepareFiscalProducts);
+
+// Sugestões preliminares: NÃO são dados fiscais aprovados para transmissão.
+const FISCAL_SUGGESTIONS = [
+ ['Almoço no kg','5101','102','KG','Refeição preparada; NCM depende da classificação do preparo'],
+ ['Refrigerante Lata','5102','102','UN','Verificar NCM/CEST e se há ICMS-ST; se confirmado, avaliar 5405/500'],
+ ['Água 500ml','5102','102','UN','Confirmar água mineral/natural, com ou sem gás; avaliar ICMS-ST'],
+ ['Água de Coco','5102','102','UN','Verificar composição e NCM do rótulo; avaliar ICMS-ST'],
+ ['Suco 300ml','5102','102','UN','Verificar composição, percentual de fruta e NCM do rótulo'],
+ ['Quentinha','5101','102','UN','Refeição preparada para viagem'],
+ ['Refeição','5101','102','UN','Refeição preparada no estabelecimento'],
+ ['Doce','5101','102','UN','Identificar tipo e ingredientes do doce para NCM'],
+ ['Brownie','5101','102','UN','Verificar classificação de produto de confeitaria'],
+ ['Sobremesa','5101','102','UN','Identificar a sobremesa específica para NCM'],
+ ['Carne Assada','5101','102','KG','Confirmar preparação e tratamento fiscal de carne pronta'],
+ ['Acréscimo de carne','5101','102','UN','Confirmar natureza do adicional de refeição'],
+ ['Refrigerante 1L','5102','102','UN','Verificar NCM/CEST e ICMS-ST; alternativa 5405/500 se comprovada'],
+ ['Quentinha 1','5101','102','UN','Refeição preparada para viagem'],
+ ['H2OH 500ml','5102','102','UN','Verificar composição/rótulo e ICMS-ST'],
+ ['Chaveiro','5102','102','UN','Confirmar material e se foi comprado para revenda'],
+ ['Sorvete Brigadeiro','5101','102','UN','Confirmar sorvete fabricado no estabelecimento e NCM'],
+ ['Amstel Ultra 600ml','5102','102','UN','Cerveja: verificar NCM/CEST, ICMS-ST e PIS/COFINS monofásicos']
+];
+const FISCAL_SUGGESTION_MAP=new Map(FISCAL_SUGGESTIONS.map(([name,cfop,csosn,uTrib,note])=>[normalizeFiscalName(name),{cfop,csosn,uTrib,note}]));
+function previewFiscalSuggestions(){
+ const rows=products.map(p=>({p,proposal:FISCAL_SUGGESTION_MAP.get(normalizeFiscalName(p.name))}));
+ const found=rows.filter(x=>x.proposal);
+ const missing=rows.filter(x=>!x.proposal).map(x=>x.p.name);
+ const summary=found.map(({p,proposal})=>`${p.name}: CFOP ${proposal.cfop}, CSOSN ${proposal.csosn} (HIPÓTESE)`).join('\n');
+ alert(`${found.length} de ${products.length} produtos reconhecidos.\n\n${summary}\n\nNCM, CEST, origem, PIS/COFINS e demais campos permanecem indefinidos.\n${missing.length?'\nNão reconhecidos: '+missing.join(', '):''}\n\nEsses códigos são apenas para análise e NÃO habilitam emissão.`);
+}
+function applyFiscalSuggestions(){
+ if(!cloudReady||!cloudUser){alert('Entre no Firebase e aguarde sincronizar antes de aplicar.');return;}
+ const matches=products.map((p,i)=>({i,proposal:FISCAL_SUGGESTION_MAP.get(normalizeFiscalName(p.name))})).filter(x=>x.proposal);
+ if(!matches.length){alert('Nenhum produto reconhecido. Confira os nomes.');return;}
+ if(!confirm(`Registrar propostas fiscais NÃO VALIDADAS para ${matches.length} de ${products.length} produtos?\n\nCFOP e CSOSN sugeridos serão guardados separadamente dos campos fiscais oficiais. Nenhum código tributário já cadastrado será substituído. Os dados não podem ser usados para emitir NFC-e sem validação.\n\nContinuar?`))return;
+ const backup=products.map(p=>({...p}));
+ for(const {i,proposal} of matches){
+  products[i]={...products[i],fiscalProposal:{cfop:proposal.cfop,csosn:proposal.csosn,uTrib:proposal.uTrib,ncm:null,cest:null,origem:null,cstPis:null,cstCofins:null,note:proposal.note,status:'PROPOSTA NÃO VALIDADA — NÃO USAR NA EMISSÃO'},fiscalPrep:{...products[i].fiscalPrep,group:fiscalGroupFor(products[i].name),validation:'Pendente de validação pelo contador'}};
+ }
+ try{save();}catch(e){products=backup;alert('Erro ao salvar: '+e.message);return;}
+ render();alert(`${matches.length} propostas registradas localmente. Aguarde "Sincronizado na nuvem". Nenhum campo fiscal oficial foi alterado.`);
+}
+$('previewFiscalSuggestions')?.addEventListener('click',previewFiscalSuggestions);
+$('applyFiscalSuggestions')?.addEventListener('click',applyFiscalSuggestions);
+
+
 let editingProductIndex = null;
 function renderProductCatalog(){
   const query=($('catalogSearch')?.value||'').trim().toLocaleLowerCase('pt-BR');
   renderCategoryTabs();
   const visible=products.map((p,index)=>({...p,index})).filter(p=>(activeCatalogCategory==='Todas'||(p.category||'Principal')===activeCatalogCategory)&&p.name.toLocaleLowerCase('pt-BR').includes(query));
   $('productCount').textContent=`${products.length} produto${products.length===1?'':'s'}`;
-  $('productCatalog').innerHTML=visible.length?visible.map(p=>`<div class="catalog-item"><div class="catalog-info"><strong>${esc(p.name)}</strong><small>${p.unit==='kg'?'Venda por quilo':'Venda por unidade'}</small><strong class="catalog-price">${money(p.price)}${p.unit==='kg'?' / kg':' / un.'}</strong></div><div class="catalog-actions"><button type="button" class="button secondary" data-edit-product="${p.index}" aria-label="Editar ${esc(p.name)}">Editar</button><button type="button" class="button danger catalog-delete" data-delete-product="${p.index}" aria-label="Excluir ${esc(p.name)}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhum produto cadastrado corresponde à pesquisa.</div>';
+  fiscalPrepSummary();
+  $('productCatalog').innerHTML=visible.length?visible.map(p=>`<div class="catalog-item"><div class="catalog-info"><strong>${esc(p.name)}</strong><small>${p.unit==='kg'?'Venda por quilo':'Venda por unidade'}</small><strong class="catalog-price">${money(p.price)}${p.unit==='kg'?' / kg':' / un.'}</strong><small class="fiscal-status">${p.fiscalPrep?.group?esc(p.fiscalPrep.group)+" · ":""}${p.fiscalProposal?.status?"Proposta CFOP "+esc(p.fiscalProposal.cfop)+" / CSOSN "+esc(p.fiscalProposal.csosn)+" (não validada) · ":""}${fiscalIssues(p.fiscal||{}).length?'Fiscal pendente de validação':'Campos fiscais preenchidos — conferir com contador'}</small></div><div class="catalog-actions"><button type="button" class="button secondary" data-edit-product="${p.index}" aria-label="Editar ${esc(p.name)}">Editar</button><button type="button" class="button danger catalog-delete" data-delete-product="${p.index}" aria-label="Excluir ${esc(p.name)}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhum produto cadastrado corresponde à pesquisa.</div>';
   document.querySelectorAll('[data-edit-product]').forEach(button=>button.addEventListener('click',()=>startEditProduct(Number(button.dataset.editProduct))));
   document.querySelectorAll('[data-delete-product]').forEach(button=>button.addEventListener('click',()=>deleteProduct(Number(button.dataset.deleteProduct))));
 }
@@ -268,6 +408,7 @@ function startEditProduct(index){
   $('editProductPrice').value=String(product.price);
   $('editProductUnit').value=product.unit;
   $('editProductCategory').value=product.category||'Principal';
+  writeFiscalFields('editFiscal',product.fiscal);
   $('editProductPanel').hidden=false;
   $('editProductPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
   $('editProductName').focus();
@@ -278,13 +419,16 @@ $('confirmEditProduct').addEventListener('click',()=>{
   if(index===null||!products[index]){closeEditProduct();alert('Produto não encontrado.');return;}
   const name=$('editProductName').value.trim();
   const priceText=$('editProductPrice').value;
-  const price=Number(priceText);
+  const price=Number(String(priceText).replace(',','.'));
   const unit=$('editProductUnit').value;
   if(!name){alert('Informe o nome do produto.');$('editProductName').focus();return;}
   if(priceText.trim()===''||!Number.isFinite(price)||price<0){alert('Informe um preço válido.');$('editProductPrice').focus();return;}
   if(!['kg','un'].includes(unit)){alert('Selecione a unidade de venda.');return;}
   if(products.some((p,i)=>i!==index&&p.name.trim().toLocaleLowerCase('pt-BR')===name.toLocaleLowerCase('pt-BR'))){alert('Já existe outro produto com esse nome.');return;}
-  products[index]={...products[index],name,price,unit,category:$('editProductCategory').value};
+  const fiscal=readFiscalFields('editFiscal');
+  const invalid=fiscalIssues(fiscal).filter(x=>x.includes('inválido'));
+  if(invalid.length){alert('Revise os campos fiscais: '+invalid.join(', '));return;}
+  products[index]={...products[index],name,price,unit,category:$('editProductCategory').value,fiscal};
   closeEditProduct();
   save();
   render();
@@ -304,12 +448,65 @@ function deleteProduct(index){
 let pendingPayments=[],pendingPaymentTable=null;
 const cents=v=>Math.round((Number(v)||0)*100);
 const paymentEntries=s=>Array.isArray(s.payments)&&s.payments.length?s.payments:[{method:s.payment||'Dinheiro',amount:Number(s.paidAmount??s.total)||0}];
-const paidByMethod=(s,m)=>paymentEntries(s).filter(p=>p.method===m).reduce((n,p)=>n+cents(p.amount),0)/100;
+const paidByMethod=(s,m)=>paymentEntries(s).filter(p=>m==='Cartão'?['Cartão','Cartão de Crédito','Cartão de Débito'].includes(p.method):p.method===m).reduce((n,p)=>n+cents(p.amount),0)/100;
 function renderPendingPayments(){
  const t=table(),total=t?cents(tableTotal(t)):0,paid=pendingPayments.reduce((n,p)=>n+cents(p.amount),0),remaining=Math.max(0,total-paid);
  $('paymentParts').innerHTML=pendingPayments.map((p,i)=>`<div class="payment-part"><span>${esc(p.method)} — ${money(p.amount)}</span><button type="button" class="button secondary" data-remove-payment="${i}">Remover</button></div>`).join('')||'<p class="help">Nenhum pagamento adicionado.</p>';
  $('paymentAdded').textContent=money(paid/100);$('paymentRemaining').textContent=money(remaining/100);$('paymentChangeWrap').hidden=paid<=total;$('paymentChange').textContent=money(Math.max(0,paid-total)/100);$('amountPaid').placeholder=money(remaining/100);updateCashPreview();
 }
+
+/* ATUALIZAR RESUMO DA JANELA DE PAGAMENTO */
+function atualizarResumoJanelaPagamento() {
+  const janela = document.getElementById('janelaPagamento');
+  if (!janela) return;
+
+  const t = table();
+  const total = t ? cents(tableTotal(t)) : 0;
+
+  const pago = pendingPayments.reduce(
+    (soma, p) => soma + cents(p.amount), 0
+  );
+
+  const restante = Math.max(0, total - pago);
+
+  document.getElementById('modalTotal').textContent =
+    money(total / 100);
+
+  document.getElementById('modalPago').textContent =
+    money(pago / 100);
+
+  document.getElementById('modalRestante').textContent =
+    money(restante / 100);
+
+  const lista = document.getElementById('modalPagamentosAdicionados');
+
+  lista.innerHTML = pendingPayments.map((p, i) =>
+    '<div class="payment-part">' +
+      '<span>' + esc(p.method) + ' — ' + money(p.amount) + '</span>' +
+      '<button type="button" class="button secondary" ' +
+      'data-remove-payment="' + i + '">Remover</button>' +
+    '</div>'
+  ).join('') || '<p class="help">Nenhum pagamento adicionado.</p>';
+}
+
+/* REMOVER PAGAMENTO DA NOVA JANELA */
+document.getElementById('modalPagamentosAdicionados')
+  ?.addEventListener('click', (evento) => {
+    const botao = evento.target.closest('[data-remove-payment]');
+    if (!botao) return;
+
+    const indice = Number(botao.dataset.removePayment);
+
+    if (!Number.isInteger(indice) ||
+        indice < 0 ||
+        indice >= pendingPayments.length) return;
+
+    pendingPayments.splice(indice, 1);
+
+    renderPendingPayments();
+    atualizarResumoJanelaPagamento();
+  });
+
 function updateCashPreview(){
  const t=table(),total=t?cents(tableTotal(t)):0;
  const added=pendingPayments.reduce((n,p)=>n+cents(p.amount),0);
@@ -323,7 +520,8 @@ function fillRemainingPayment(){
  const t=table();if(!t||!t.items.length)return;
  const paid=pendingPayments.reduce((n,p)=>n+cents(p.amount),0);
  $('amountPaid').value=(Math.max(0,cents(tableTotal(t))-paid)/100).toFixed(2);
- updateCashPreview();$('amountPaid').focus();$('amountPaid').select();
+ updateCashPreview();
+atualizarResumoJanelaPagamento();$('amountPaid').focus();$('amountPaid').select();
 }
 $('fillRemaining').addEventListener('click',fillRemainingPayment);
 $('amountPaid').addEventListener('input',updateCashPreview);
@@ -355,6 +553,7 @@ function renderReports(){
   $('cardTotal').textContent=money(sum('Cartão'));
   $('salesCount').textContent=daySales.length;
   renderCloudCashReports();
+  renderFiscalSales();
 }
 // Consulta visual do histórico de caixas (mesma fonte sincronizada no Firestore).
 let expandedCloudCashId=null;
@@ -404,7 +603,7 @@ function cashReportData(session){
   const methodSum=method=>sessionSales.reduce((sum,s)=>sum+Math.round(paidByMethod(s,method)*100),0)/100;
   const movementSum=type=>movements.filter(m=>m.type===type).reduce((sum,m)=>sum+Math.round(Number(m.amount||0)*100),0)/100;
   const opening=Number(session.openingAmount)||0;
-  const cash=methodSum('Dinheiro'),pix=methodSum('Pix'),card=methodSum('Cartão');
+  const cash=methodSum('Dinheiro'),pix=methodSum('Pix'),card=methodSum('Cartão')+methodSum('Cartão de Crédito')+methodSum('Cartão de Débito');
   const entries=movementSum('in'),withdrawals=movementSum('out');
   const expected=Math.round((opening+cash+entries-withdrawals)*100)/100;
   const counted=session.countedAmount==null?null:Number(session.countedAmount);
@@ -479,7 +678,15 @@ function addProductDirect(productIndex){
   if(!p){alert('Produto não encontrado.');return;}
   // Um clique lança uma unidade ou 1 kg; a quantidade pode ser ajustada manualmente no formulário abaixo.
   const quantity=1,price=Number(p.price)||0,unit=p.unit==='kg'?'kg':'un';
-  table().items.push({name:p.name,price,unit,quantity,total:Math.round(price*quantity*100)/100,createdAt:new Date().toISOString()});
+ table().items.push({
+  productId: p.id || null,
+  name: p.name,
+  price,
+  unit,
+  quantity,
+  total: Math.round(price * quantity * 100) / 100,
+  createdAt: new Date().toISOString()
+});
   save();render();resetToLunchKg();updateCalculation();
 }
 function launchManualProduct(){
@@ -490,17 +697,35 @@ function launchManualProduct(){
   if(!Number.isFinite(quantity)||quantity<=0){alert('Informe peso ou quantidade maior que zero.');return;}
   if(!Number.isFinite(price)||price<0){alert('Informe um preço válido.');return;}
   const normalizedQuantity=quantity;
-  table().items.push({name:p.name,price,unit,quantity:normalizedQuantity,total:Math.round(price*normalizedQuantity*100)/100,createdAt:new Date().toISOString()});
+  table().items.push({
+  productId: p.id || null,
+  name: p.name,
+  price,
+  unit,
+  quantity: normalizedQuantity,
+  total: Math.round(price * normalizedQuantity * 100) / 100,
+  createdAt: new Date().toISOString()
+});
   save();render();resetToLunchKg();updateCalculation();
 }
 $('quantity').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();launchManualProduct();}});
 
 $('saveProduct').addEventListener('click',()=>{
-  const name=$('newProductName').value.trim(),priceText=$('newProductPrice').value,price=Number(priceText),unit=$('newProductUnit').value;
+  const name=$('newProductName').value.trim(),priceText=$('newProductPrice').value,price=Number(String(priceText).replace(',','.')),unit=$('newProductUnit').value;
   if(!name){alert('Digite o nome do produto.');return;}
   if(priceText===''||!Number.isFinite(price)||price<0){alert('Digite um preço válido.');return;}
   if(products.some(p=>p.name.toLocaleLowerCase('pt-BR')===name.toLocaleLowerCase('pt-BR'))){alert('Já existe um produto com esse nome.');return;}
-  products.push({name,price,unit,category:$('newProductCategory').value||'Principal'});save();$('newProductName').value='';$('newProductPrice').value='';render();alert('Produto cadastrado.');
+  const fiscal=readFiscalFields('newFiscal');
+  const invalid=fiscalIssues(fiscal).filter(x=>x.includes('inválido'));
+  if(invalid.length){alert('Revise os campos fiscais: '+invalid.join(', '));return;}
+  products.push({
+  id: gerarIdProduto(),
+  name,
+  price,
+  unit,
+  category: $('newProductCategory').value || 'Principal',
+  fiscal
+});try{save();}catch(error){products.pop();alert('Não foi possível salvar o produto: '+error.message);return;}$('newProductName').value='';$('newProductPrice').value='';writeFiscalFields('newFiscal');render();alert('Produto cadastrado localmente. Confira o status de sincronização do Firebase antes de fechar o sistema. Os campos fiscais podem ser preenchidos depois.');
 });
 // Personalização do cabeçalho e rodapé dos cupons (não fiscais).
 const RECEIPT_COMPANY = {
@@ -538,7 +763,95 @@ $('printLastSale').addEventListener('click',()=>{
   if(!last){alert('Ainda não há vendas finalizadas para reimprimir.');return;}
   printReceipt(last,true);
 });
-$('closeBill').addEventListener('click',()=>{
+
+/* ABRIR JANELA DE PAGAMENTO */
+$('closeBill').addEventListener('click', () => {
+  if (!activeCash) {
+    alert('Abra o caixa antes de fechar contas.');
+    return;
+  }
+
+  const t = table();
+
+  if (!t || !t.items.length) {
+    alert('Esta mesa não tem itens.');
+    return;
+  }
+
+  const janela = $('janelaPagamento');
+
+  $('tituloPagamento').textContent =
+    'Finalizar conta — Mesa ' + pad(selectedTableId);
+
+  janela.hidden = false;
+});
+
+/* FECHAR JANELA DE PAGAMENTO PELO X */
+document.getElementById('fecharJanelaPagamento')
+  ?.addEventListener('click', () => {
+    document.getElementById('janelaPagamento').hidden = true;
+  });
+
+
+
+const botaoAdicionarPagamentoJanela =
+  document.getElementById('adicionarPagamentoJanela');
+
+if (botaoAdicionarPagamentoJanela) {
+  botaoAdicionarPagamentoJanela.addEventListener('click', () => {
+    const valor = document.getElementById('valorJanelaPagamento').value;
+
+    document.getElementById('paymentMethod').value =
+      metodoPagamentoJanela;
+
+    document.getElementById('amountPaid').value = valor;
+
+    document.getElementById('addPayment').click();
+
+    atualizarResumoJanelaPagamento();
+
+    document.getElementById('valorJanelaPagamento').value = '';
+  });
+}
+
+/* FORMAS DE PAGAMENTO DA NOVA JANELA */
+let metodoPagamentoJanela = 'Pix';
+
+document.querySelectorAll(
+  '#janelaPagamento [data-pagamento]'
+).forEach(botao => {
+  botao.addEventListener('click', () => {
+    metodoPagamentoJanela = botao.dataset.pagamento;
+
+    document.querySelectorAll(
+      '#janelaPagamento [data-pagamento]'
+    ).forEach(b => b.classList.remove('ativo'));
+
+    botao.classList.add('ativo');
+
+    $('paymentMethod').value = metodoPagamentoJanela;
+
+    const restante = Math.max(
+      0,
+      cents(tableTotal(table())) -
+      pendingPayments.reduce(
+        (soma, p) => soma + cents(p.amount), 0
+      )
+    );
+
+    $('valorJanelaPagamento').value =
+      (restante / 100).toFixed(2);
+  });
+});
+
+
+
+/* FECHAR JANELA SEM FINALIZAR A CONTA */
+$('confirmarFechamentoMesa')?.addEventListener('click',()=>{
+  $('janelaPagamento').hidden = true;
+});
+
+$('confirmarFechamentoMesa')?.addEventListener('click',()=>{
   if(!activeCash){alert('Abra o caixa antes de fechar contas. Acesse a aba Abrir / fechar caixa.');return;}
   const t=table(),total=tableTotal(t);
   if(!t.items.length){alert('Esta mesa não tem itens.');return;}
@@ -552,10 +865,59 @@ $('closeBill').addEventListener('click',()=>{
   const payments=pendingPayments.map(p=>({...p}));
   if(change>0){const cashEntry=payments.find(p=>p.method==='Dinheiro');cashEntry.amount=(cents(cashEntry.amount)-cents(change))/100;}
   const payment=payments.length===1?payments[0].method:'Múltiplos';
-  if(!confirm(`Fechar Mesa ${pad(selectedTableId)} no valor de ${money(total)}?\n${payments.map(p=>p.method+': '+money(p.amount)).join('\n')}\nTroco: ${money(change)}`))return;
-  sales.push({table:selectedTableId,items:t.items.map(item=>({...item})),total,paidAmount:total,payment,payments,change,cashSessionId:activeCash.id,closedAt:new Date().toISOString()});
-  t.items=[];selectedTableId=null;resetPendingPayments();save();render();alert('Venda registrada. Mesa liberada.');
+  
+
+sales.push({
+  id: crypto.randomUUID(),
+  table: selectedTableId,
+  items: t.items.map(item => {
+    const produtoCadastrado = products.find(
+      p => String(p.id) === String(item.id) ||
+           String(p.id) === String(item.productId)
+    );
+
+    return {
+      ...item,
+      fiscal: produtoCadastrado?.fiscal
+        ? { ...produtoCadastrado.fiscal }
+        : item.fiscal || null
+    };
+  }),
+  total,
+  paidAmount: total,
+  payment,
+  payments,
+  change,
+  cashSessionId: activeCash.id,
+  closedAt: new Date().toISOString(),
+  fiscalStatus: 'pendente'
 });
+
+ t.items=[];
+selectedTableId=null;
+resetPendingPayments();
+save();
+render();
+
+// Fecha a janela após registrar a venda
+const modalPagamento = document.getElementById('janelaPagamento');
+if (modalPagamento) {
+  modalPagamento.hidden = true;
+}
+
+  // Guarda a venda recém-finalizada.
+  const vendaFinalizada = sales[sales.length - 1];
+
+  // Abre a janela personalizada para escolher a impressão.
+  mostrarJanelaImpressao(vendaFinalizada);
+
+// Consulta automaticamente o servidor fiscal após fechar a mesa.
+prepararFiscalAoFecharMesa(vendaFinalizada, sales.length - 1)
+  .catch(erro => {
+    console.error('Falha na consulta fiscal automática:', erro);
+  });
+});
+
 $('clearTable').addEventListener('click',()=>{
   const t=table();if(!t.items.length){alert('Esta mesa já está vazia.');return;}
   if(confirm(`Apagar os itens da Mesa ${pad(selectedTableId)} sem registrar venda?`)){t.items=[];save();render();}
@@ -840,3 +1202,804 @@ window.addEventListener('storage', event => {
   activeCash = load('restaurante_active_cash', null);
   render();
 });
+
+// NFC-e: emissão manual em homologação; credenciais ficam SOMENTE no backend.
+function fiscalRef(s,i){
+  const date=String(s.closedAt||'').replace(/[^0-9]/g,'').slice(0,14);
+  return 'VENDA'+date+'M'+String(s.table||0)+'I'+i;
+}
+
+
+function preencherDocumentoFiscalDaVenda() {
+  const seletor = document.getElementById('fiscalSale');
+  const campo = document.getElementById('fiscalCpf');
+
+  if (!seletor || !campo) {
+    console.warn('Campo fiscal não encontrado.');
+    return;
+  }
+
+  const indice = seletor.value;
+
+  if (indice === '') {
+    campo.value = '';
+    return;
+  }
+
+  const venda = sales[Number(indice)];
+
+  if (!venda) {
+    campo.value = '';
+    return;
+  }
+
+  // Recupera o CPF/CNPJ informado no fechamento.
+  const documento = String(venda.documentoCliente || '')
+    .replace(/\D/g, '');
+
+  // Preenche automaticamente a área fiscal.
+  campo.value = documento;
+}
+
+// Também atualiza quando uma venda é selecionada manualmente.
+document.getElementById('fiscalSale')
+  ?.addEventListener('change', preencherDocumentoFiscalDaVenda);
+
+function renderFiscalSales(){
+ const select=$('fiscalSale');if(!select)return;
+ const prev=select.value;
+ select.innerHTML='<option value="">Selecione uma venda fechada</option>'+sales.map((s,i)=>`<option value="${i}">Mesa ${pad(s.table)} · ${new Date(s.closedAt).toLocaleString('pt-BR')} · ${money(s.total)}</option>`).join('');
+ if([...select.options].some(o=>o.value===prev))select.value=prev;
+}
+
+
+
+function fiscalUrl() {
+  return 'http://localhost:3001';
+}
+
+function prepararItensFiscaisAutomaticos(sale) {
+  if (!sale || !Array.isArray(sale.items) || !sale.items.length) {
+    throw new Error('Venda sem itens.');
+  }
+
+  return sale.items.map((item, index) => {
+    if (!item.productId) {
+      throw new Error(
+        `Item ${index + 1} sem identificação do produto. Revisão manual necessária.`
+      );
+    }
+
+    const produto = products.find(
+  p => String(p.id) === String(item.productId)
+);
+
+if (!produto) {
+  throw new Error(
+    `Produto do item ${index + 1} não encontrado no cadastro.`
+  );
+}
+
+// Cria e salva um código interno estável para o produto.
+if (!produto.code) {
+  const codigosUsados = new Set(
+    products
+      .filter(p => p !== produto)
+      .map(p => String(p.code || ''))
+  );
+
+  let numero = 1;
+
+  while (
+    numero <= 999 &&
+    codigosUsados.has(String(numero).padStart(3, '0'))
+  ) {
+    numero++;
+  }
+
+  if (numero > 999) {
+    throw new Error('Não há códigos internos disponíveis.');
+  }
+
+  produto.code = String(numero).padStart(3, '0');
+  save();
+}
+
+if (!/^\d{3}$/.test(String(produto.code))) {
+  throw new Error(
+    `Produto do item ${index + 1} sem código interno válido.`
+  );
+}
+
+    const quantidade = Number(item.quantity);
+    const unitario = Number(item.price);
+    const total = Number(item.total);
+
+    if (
+      !Number.isFinite(quantidade) || quantidade <= 0 ||
+      !Number.isFinite(unitario) || unitario < 0 ||
+      !Number.isFinite(total) || total < 0 ||
+      Math.abs(Math.round(quantidade * unitario * 100) -
+               Math.round(total * 100)) > 1
+    ) {
+      throw new Error(`Valores inválidos no item ${index + 1}.`);
+    }
+
+       return {
+      codigo: produto.code,
+      descricao: produto.name,
+      unidade_comercial: item.unit,
+      quantidade_comercial: quantidade,
+      valor_unitario_comercial: unitario,
+      valor_bruto: total,
+      fiscal: { ...(produto.fiscal || {}) }
+    };
+  });
+}
+
+async function fiscalRequest(action) {
+ if(!cloudUser||!cloudClient){alert('Entre no Firebase antes de acessar a emissão fiscal.');return;}
+ const index=Number($('fiscalSale').value),sale=sales[index];
+ if($('fiscalSale').value===''||!sale){alert('Selecione uma venda fechada.');return;}
+ const ref=fiscalRef(sale,index),status=$('fiscalStatus'),result=$('fiscalResult');
+ let body;
+ if(action==='issue'){
+   try {
+  body = JSON.parse($('fiscalPayload').value);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new Error('JSON fiscal inválido.');
+  }
+
+  // Identifica os produtos da venda automaticamente.
+  const itensAutomaticos = prepararItensFiscaisAutomaticos(sale);
+
+  // Preserva os campos tributários informados para revisão.
+  const itensInformados = Array.isArray(body.itens) ? body.itens : [];
+
+  if (itensInformados.length !== itensAutomaticos.length) {
+    throw new Error(
+      'A quantidade de itens fiscais deve corresponder à venda.'
+    );
+  }
+
+  body.itens = itensAutomaticos.map((item, indice) => ({
+    ...itensInformados[indice],
+    ...item
+  }));
+
+  // Mostra os itens preparados para conferência antes de salvar.
+// Prepara os pagamentos fiscais a partir da venda registrada.
+const codigosPagamentoFiscal = {
+  'Dinheiro': '01',
+  'Pix': '17',
+  'Crédito': '03',
+  'Débito': '04',
+  'Cartão de crédito': '03',
+  'Cartão de débito': '04'
+};
+
+if (!Array.isArray(sale.payments) || !sale.payments.length) {
+  throw new Error('Venda sem pagamentos registrados.');
+}
+
+body.formas_pagamento = sale.payments.map(pagamento => {
+  const codigo = codigosPagamentoFiscal[pagamento.method];
+
+  if (!codigo) {
+    throw new Error(
+      'Forma de pagamento não reconhecida: ' + pagamento.method
+    );
+  }
+
+  const valor = Number(pagamento.amount);
+
+  if (!Number.isFinite(valor) || valor <= 0) {
+    throw new Error('Valor de pagamento inválido.');
+  }
+
+  return {
+    tPag: codigo,
+    vPag: valor.toFixed(2)
+  };
+});
+
+const totalPagoFiscal = body.formas_pagamento.reduce(
+  (total, pagamento) => total + Math.round(Number(pagamento.vPag) * 100),
+  0
+);
+
+if (totalPagoFiscal !== Math.round(Number(sale.total) * 100)) {
+  throw new Error('Pagamentos não correspondem ao total da venda.');
+}
+  $('fiscalPayload').value = JSON.stringify(body, null, 2);
+
+} catch (error) {
+  alert(error.message);
+  return;
+}
+   if(!body||!Array.isArray(body.itens)||!body.itens.length){alert('Informe os itens e os códigos tributários validados pelo contador.');return;}
+   const cpf=$('fiscalCpf').value.replace(/\D/g,'');
+   if(cpf&&![11,14].includes(cpf.length)){alert('CPF/CNPJ deve ter 11 ou 14 dígitos.');return;}
+   if(cpf)body[cpf.length===11?'cpf_destinatario':'cnpj_destinatario']=cpf;
+   if(!confirm('Salvar RASCUNHO fiscal para revisão? Nenhuma NFC-e será transmitida à SEFAZ.'))return;
+ }
+ status.textContent='Consultando servidor fiscal…';
+ try{
+   const token=await cloudClient.auth.currentUser.getIdToken();
+   const url=fiscalUrl()+'/api/nfce/'+encodeURIComponent(ref)+(action==='issue'?'/rascunho':'');
+   const response=await fetch(url,{method:action==='issue'?'POST':'GET',headers:{Authorization:'Bearer '+token,...(action==='issue'?{'Content-Type':'application/json'}:{})},...(action==='issue'?{body:JSON.stringify({sale,payload:body})}:{})});
+   const data=await response.json();result.textContent=JSON.stringify(data,null,2);
+   status.textContent=data.status||data.error||(response.ok?'Consulta concluída':'Erro na consulta');
+ }catch(error){status.textContent='Falha na conexão';result.textContent=error.message;}
+}
+$('fiscalIssue').addEventListener('click',()=>fiscalRequest('issue'));
+$('fiscalConsult').addEventListener('click',()=>fiscalRequest('consult'));
+// Visualização da prévia XML — não emite nem transmite NFC-e.
+$('fiscalXmlPreview')?.addEventListener('click', async () => {
+  const botao = $('fiscalXmlPreview');
+  const resultado = $('fiscalResult');
+  const status = $('fiscalStatus');
+
+  if (!cloudClient?.auth?.currentUser) {
+    alert('Entre no Firebase antes de visualizar o XML.');
+    return;
+  }
+
+  const indice = Number($('fiscalSale').value);
+  const venda = sales[indice];
+
+  if ($('fiscalSale').value === '' || !venda) {
+    alert('Selecione uma venda fechada.');
+    return;
+  }
+
+  const referencia = fiscalRef(venda, indice);
+
+  botao.disabled = true;
+  status.textContent = 'Buscando prévia XML...';
+
+  try {
+    const token = await cloudClient.auth.currentUser.getIdToken();
+
+    const resposta = await fetch(
+      fiscalUrl() + '/api/nfce/' +
+      encodeURIComponent(referencia) + '/xml-teste',
+      {
+        method: 'GET',
+        headers: {
+          Authorization: 'Bearer ' + token
+        }
+      }
+    );
+
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      throw new Error(dados.error || 'Erro ao consultar XML.');
+    }
+
+    if (dados.tipo !== 'PREVIA_ESTRUTURAL_NAO_FISCAL' ||
+        typeof dados.xml !== 'string') {
+      throw new Error('O servidor não retornou uma prévia XML válida.');
+    }
+
+    resultado.textContent = dados.xml;
+    status.textContent = 'Prévia XML de teste — NÃO é NFC-e emitida';
+
+  } catch (erro) {
+    status.textContent = 'Erro ao visualizar XML';
+    resultado.textContent = erro.message;
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+
+
+function mostrarJanelaImpressao(venda) {
+  document.getElementById('janelaImpressaoConta')?.remove();
+
+  const fundo = document.createElement('div');
+  fundo.id = 'janelaImpressaoConta';
+
+  fundo.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    padding: 20px;
+  `;
+
+  const janela = document.createElement('div');
+
+  janela.style.cssText = `
+    background: white;
+    color: #222;
+    border-radius: 18px;
+    padding: 30px 24px;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    box-shadow: 0 15px 50px rgba(0,0,0,0.4);
+    font-family: Arial, sans-serif;
+  `;
+
+  janela.innerHTML = `
+    <div style="font-size:46px;color:#198754;">✓</div>
+
+    <h2>Conta finalizada!</h2>
+
+    <p style="color:#555;">
+      Venda registrada com sucesso.<br>
+      Mesa liberada.
+    </p>
+
+    <div style="
+      background:#f5f5f5;
+      border-radius:10px;
+      padding:14px;
+      margin:18px 0;
+    ">
+      <div>Total da venda</div>
+      <strong style="font-size:26px;">
+        ${money(venda.total)}
+      </strong>
+    </div>
+
+    <h3>Deseja emitir nota fiscal?</h3>
+
+    <div style="text-align:left;margin-top:18px;">
+      <label for="cpfCnpjNota"
+        style="font-weight:bold;font-size:14px;">
+        CPF ou CNPJ do cliente (opcional)
+      </label>
+
+      <input
+        id="cpfCnpjNota"
+        type="text"
+        inputmode="numeric"
+        maxlength="18"
+        placeholder="Digite o CPF ou CNPJ"
+        autocomplete="off"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin-top:8px;
+          border:1px solid #ccc;
+          border-radius:10px;
+          font-size:16px;
+        "
+      >
+
+      <small style="color:#777;display:block;margin-top:7px;">
+        Deixe em branco caso o cliente não queira
+        informar CPF ou CNPJ.
+      </small>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:22px;">
+      <button id="naoEmitirNota" type="button"
+        style="
+          flex:1;
+          padding:14px 8px;
+          background:#e5e7eb;
+          color:#222;
+          border:0;
+          border-radius:10px;
+          font-size:14px;
+          font-weight:bold;
+          cursor:pointer;
+        ">
+        Não emitir
+      </button>
+
+      <button id="emitirNotaFiscal" type="button"
+        style="
+          flex:1;
+          padding:14px 8px;
+          background:#198754;
+          color:white;
+          border:0;
+          border-radius:10px;
+          font-size:14px;
+          font-weight:bold;
+          cursor:pointer;
+        ">
+        Emitir nota fiscal
+      </button>
+    </div>
+  `;
+
+  fundo.appendChild(janela);
+  document.body.appendChild(fundo);
+
+  const campoDocumento =
+    janela.querySelector('#cpfCnpjNota');
+
+  // Permite somente números e formata CPF/CNPJ.
+  campoDocumento.addEventListener('input', () => {
+    let numeros = campoDocumento.value
+      .replace(/\D/g, '')
+      .slice(0, 14);
+
+    if (numeros.length <= 11) {
+      numeros = numeros
+        .replace(/^(\d{3})(\d)/, '$1.$2')
+        .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1-$2');
+    } else {
+      numeros = numeros
+        .replace(/^(\d{2})(\d)/, '$1.$2')
+        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1/$2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+    }
+
+    campoDocumento.value = numeros;
+  });
+
+  janela.querySelector('#naoEmitirNota')
+    .addEventListener('click', () => {
+      fundo.remove();
+    });
+
+
+  janela.querySelector('#emitirNotaFiscal')
+    .addEventListener('click', () => {
+
+      const documento = campoDocumento.value
+        .replace(/\D/g, '');
+
+      // Verifica se o CPF/CNPJ possui a quantidade correta de dígitos.
+      if (
+        documento &&
+        documento.length !== 11 &&
+        documento.length !== 14
+      ) {
+        alert(
+          'Informe um CPF com 11 dígitos ou um CNPJ com 14 dígitos.'
+        );
+        campoDocumento.focus();
+        return;
+      }
+
+      // Procura a venda pela data, mesa e caixa.
+      // Isso evita o erro causado pela sincronização do Firebase.
+      const indiceVenda = sales.findIndex(s =>
+        s.closedAt === venda.closedAt &&
+        Number(s.table) === Number(venda.table) &&
+        s.cashSessionId === venda.cashSessionId
+      );
+
+      if (indiceVenda === -1) {
+        alert(
+          'Não foi possível localizar esta venda. ' +
+          'Atualize a página e tente novamente.'
+        );
+        return;
+      }
+
+      // Salva o CPF/CNPJ na venda encontrada.
+      if (documento) {
+        sales[indiceVenda].documentoCliente = documento;
+      } else {
+        delete sales[indiceVenda].documentoCliente;
+      }
+
+      // Salva no navegador e solicita sincronização com Firebase.
+      save();
+
+      console.log('Documento salvo na venda:', {
+        indiceVenda,
+        documentoSalvo:
+          !!sales[indiceVenda].documentoCliente
+      });
+
+      // Atualiza as vendas disponíveis na área fiscal.
+      renderFiscalSales();
+
+      const seletorFiscal =
+        document.getElementById('fiscalSale');
+
+      if (seletorFiscal) {
+
+        // Seleciona a venda que acabou de ser fechada.
+        seletorFiscal.value = String(indiceVenda);
+
+        // Atualiza o campo de CPF/CNPJ automaticamente.
+        seletorFiscal.dispatchEvent(
+          new Event('change')
+        );
+
+        preencherDocumentoFiscalDaVenda();
+      }
+
+      // Fecha a janela de impressão.
+      fundo.remove();
+
+      if (seletorFiscal) {
+
+        seletorFiscal.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+
+        alert(
+          'Venda selecionada para preparação fiscal.' +
+          (documento
+            ? '\nCPF/CNPJ salvo com sucesso.'
+            : '\nVenda sem CPF/CNPJ informado.')
+        );
+
+      } else {
+
+        alert(
+          'Documento salvo, mas a área fiscal não foi encontrada.'
+        );
+
+      }
+    });
+
+}
+
+
+/* ===== ABA NOTAS FISCAIS ===== */
+
+function criarAbaNotasFiscais() {
+  if (document.getElementById('abaNotasFiscais')) return;
+
+  const primeiraAba = document.querySelector('[data-tab]');
+  if (!primeiraAba) return;
+
+  // Cria o botão da nova aba.
+  const botao = document.createElement('button');
+  botao.id = 'abaNotasFiscais';
+  botao.type = 'button';
+  botao.className = primeiraAba.className;
+  botao.classList.remove('active');
+  botao.textContent = 'Notas Fiscais';
+
+  primeiraAba.parentElement.appendChild(botao);
+
+  // Cria a tela das notas fiscais.
+  const tela = document.createElement('section');
+  tela.id = 'telaNotasFiscais';
+  tela.className = 'tab-view';
+  tela.hidden = true;
+
+  tela.innerHTML = `
+    <div style="padding:24px;">
+      <h2>Notas Fiscais</h2>
+
+      <p style="color:#777;">
+        Consulte as vendas e acompanhe
+        a preparação das notas fiscais.
+      </p>
+
+      <input
+        id="pesquisaNotasFiscais"
+        type="search"
+        placeholder="Pesquisar por mesa..."
+        style="
+          width:100%;
+          padding:13px;
+          margin:16px 0;
+          border:1px solid #ccc;
+          border-radius:10px;
+        "
+      >
+
+      <div id="listaNotasFiscais"></div>
+    </div>
+  `;
+
+  const primeiraTela = document.querySelector('.tab-view');
+
+  if (!primeiraTela) return;
+
+  primeiraTela.parentElement.appendChild(tela);
+
+  // Abre a aba Notas Fiscais.
+  botao.addEventListener('click', () => {
+    document.querySelectorAll('[data-tab]')
+      .forEach(b => b.classList.remove('active'));
+
+    document.querySelectorAll('.tab-view')
+      .forEach(v => {
+        v.hidden = true;
+        v.classList.remove('active');
+      });
+
+    botao.classList.add('active');
+    tela.hidden = false;
+    tela.classList.add('active');
+
+    atualizarListaNotasFiscais();
+  });
+
+  // Fecha a aba quando outra é selecionada.
+  document.querySelectorAll('[data-tab]')
+    .forEach(b => {
+      b.addEventListener('click', () => {
+        botao.classList.remove('active');
+        tela.hidden = true;
+        tela.classList.remove('active');
+      });
+    });
+
+  document.getElementById('pesquisaNotasFiscais')
+    .addEventListener('input', atualizarListaNotasFiscais);
+
+  atualizarListaNotasFiscais();
+}
+
+function atualizarListaNotasFiscais() {
+  const lista = document.getElementById('listaNotasFiscais');
+  if (!lista) return;
+
+  const pesquisa = (
+    document.getElementById('pesquisaNotasFiscais')?.value || ''
+  ).toLowerCase().trim();
+
+  const vendas = sales.map((venda, indice) => ({
+    venda,
+    indice
+  })).filter(({ venda }) => {
+    return String(venda.table).includes(pesquisa) ||
+      ('mesa ' + venda.table).includes(pesquisa);
+  }).reverse();
+
+  if (!vendas.length) {
+    lista.innerHTML = `
+      <p style="padding:20px;text-align:center;">
+        Nenhuma venda encontrada.
+      </p>
+    `;
+    return;
+  }
+
+  lista.innerHTML = vendas.map(({ venda, indice }) => `
+    <div style="
+      background:white;
+      color:#222;
+      border:1px solid #ddd;
+      border-radius:12px;
+      padding:18px;
+      margin-bottom:12px;
+    ">
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        flex-wrap:wrap;
+      ">
+        <div>
+          <strong>Mesa ${pad(venda.table)}</strong>
+
+          <p style="margin:7px 0;color:#666;">
+            ${new Date(venda.closedAt).toLocaleString('pt-BR')}
+          </p>
+
+          <strong>${money(venda.total)}</strong>
+        </div>
+
+        <div>
+          <span style="
+            background:#fff3cd;
+            color:#856404;
+            padding:8px 12px;
+            border-radius:8px;
+            display:inline-block;
+          ">
+            Situação fiscal não consultada
+          </span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        data-abrir-fiscal="${indice}"
+        style="
+          margin-top:15px;
+          background:#198754;
+          color:white;
+          padding:12px 18px;
+          border:0;
+          border-radius:9px;
+          cursor:pointer;
+          font-weight:bold;
+        "
+      >
+        Abrir área fiscal
+      </button>
+    </div>
+  `).join('');
+
+  lista.querySelectorAll('[data-abrir-fiscal]')
+    .forEach(botao => {
+      botao.addEventListener('click', () => {
+        const indice = botao.dataset.abrirFiscal;
+
+        const seletor = document.getElementById('fiscalSale');
+
+        if (!seletor) {
+          alert('Área fiscal não encontrada.');
+          return;
+        }
+
+        const telaFiscal = seletor.closest('.tab-view');
+
+        const abaFiscal = [...document.querySelectorAll('[data-tab]')]
+          .find(b => b.dataset.tab === telaFiscal?.id);
+
+        if (abaFiscal) {
+          abaFiscal.click();
+        }
+
+        renderFiscalSales();
+
+        seletor.value = indice;
+        seletor.dispatchEvent(new Event('change'));
+        preencherDocumentoFiscalDaVenda();
+
+        seletor.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      });
+    });
+}
+
+// Inicializa a nova aba.
+criarAbaNotasFiscais();
+
+async function prepararFiscalAoFecharMesa(venda, indice) {
+  if (!cloudClient || !cloudUser || !cloudReady) {
+    console.warn('Consulta fiscal pendente: Firebase desconectado.');
+    return;
+  }
+
+  // A referência deve continuar compatível com o servidor.
+  const referencia = fiscalRef(venda, indice);
+
+  // Aguarda a sincronização agendada da venda.
+  // A função atual não confirma erros de gravação,
+  // então o servidor ainda fará a validação.
+  if (cloudSaveTimer) {
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = null;
+  }
+
+  await syncCloudState();
+
+  const token = await cloudClient.auth.currentUser.getIdToken();
+
+  const resposta = await fetch(
+    fiscalUrl() + '/api/nfce/' + encodeURIComponent(referencia),
+    {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer ' + token
+      }
+    }
+  );
+
+  const resultado = await resposta.json();
+
+  if (!resposta.ok) {
+    throw new Error(resultado.error || 'Erro na consulta fiscal.');
+  }
+
+  console.log(
+    'VENDA LOCALIZADA PELO SERVIDOR FISCAL:',
+    referencia,
+    resultado
+  );
+}
+
+
+

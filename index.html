@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -53,7 +53,7 @@
     <section id="orderPanel" class="panel order-panel" hidden>
       <div class="section-heading"><h2>Lançar pedido</h2><span id="selectedTable" class="pill blue">Nenhuma mesa</span></div>
       <div id="orderPrompt" class="empty">Clique em uma mesa para abrir o pedido e lançar produtos.</div>
-      <div id="orderContent" hidden>
+      <div id="orderContent" class="mesa-layout-novo" hidden>
         <div class="order-toolbar"><span class="muted">Pedido da mesa selecionada</span><button id="closeOrderPanel" class="button secondary" type="button">← Voltar às mesas</button></div>
         <div class="weight-card">
           <div><span class="muted">Leitura da balança</span><strong id="weightDisplay">— g</strong></div>
@@ -76,8 +76,8 @@
           <div class="field"><label id="quantityLabel" for="quantity">Quantidade (kg)</label><input id="quantity" type="number" min="0.001" step="any" value="1" placeholder="Ex.: 1"></div>
         </div>
         <div class="calc-row"><span>Valor do item</span><strong id="itemValue">R$ 0,00</strong></div>
-        <section class="split-payment"><h3>Pagamentos da mesa</h3>
-        <div class="form-grid"><div class="field"><label for="paymentMethod">Forma de pagamento</label><select id="paymentMethod"><option>Dinheiro</option><option>Pix</option><option>Cartão</option></select></div>
+        <section class="split-payment" hidden><h3>Pagamentos da mesa</h3>
+        <div class="form-grid"><div class="field"><label for="paymentMethod">Forma de pagamento</label><select id="paymentMethod"><option>Dinheiro</option><option>Pix</option><option>Cartão de Crédito</option><option>Cartão de Débito</option></select></div>
         <div class="field"><label for="amountPaid">Valor da parcela (R$)</label><input id="amountPaid" type="number" min="0.01" step="0.01" placeholder="Valor restante"></div></div>
         <div class="cash-preview" id="cashPreview" aria-live="polite"><span>Troco em dinheiro</span><strong id="cashPreviewValue">R$ 0,00</strong></div><div class="button-row"><button id="fillRemaining" class="button secondary" type="button">Preencher restante (F2)</button><button id="addPayment" class="button secondary" type="button">+ Adicionar pagamento</button><button id="clearPayments" class="button secondary" type="button">Limpar pagamentos</button></div>
         <div id="paymentParts"></div><div class="payment-summary">Pago: <strong id="paymentAdded">R$ 0,00</strong> | Falta: <strong id="paymentRemaining">R$ 0,00</strong> <span id="paymentChangeWrap" hidden> | Troco: <strong id="paymentChange">R$ 0,00</strong></span></div></section>
@@ -87,31 +87,33 @@
     </section>
   </div>
 
-  <section id="productsTab" class="tab-view" hidden>
+  <section id="productsTab" class="tab-view" hidden>d
     <section class="panel">
       <h2>Cadastrar produto</h2>
       <p class="muted">Cadastre aqui os produtos que aparecerão na pesquisa dentro de cada mesa.</p>
       <div class="field"><label for="newProductName">Nome do produto</label><input id="newProductName" placeholder="Ex.: Self-service"></div>
       <div class="form-grid">
-        <div class="field"><label for="newProductPrice">Preço</label><input id="newProductPrice" type="number" min="0" step="0.01" placeholder="59,90"></div>
+        <div class="field"><label for="newProductPrice">Preço</label><input id="newProductPrice" type="text" inputmode="decimal" placeholder="Ex.: 59,90"></div>
         <div class="field"><label for="newProductUnit">Venda por</label><select id="newProductUnit"><option value="kg">Quilo</option><option value="un">Unidade</option></select></div>
       </div>
       <div class="field"><label for="newProductCategory">Aba do produto</label><select id="newProductCategory"></select></div>
+<fieldset class="fiscal-fields"><legend>Cadastro fiscal — NFC-e / Simples Nacional</legend><p class="muted">Os campos fiscais são opcionais para salvar o produto. Preencha posteriormente com códigos validados pelo contador; cadastro incompleto não está pronto para emissão.</p><div class="fiscal-grid"><div class="field"><label for="newFiscalNcm">NCM</label><input id="newFiscalNcm" placeholder="8 dígitos" autocomplete="off" maxlength="8"></div><div class="field"><label for="newFiscalCfop">CFOP</label><input id="newFiscalCfop" placeholder="4 dígitos" autocomplete="off" maxlength="4"></div><div class="field"><label for="newFiscalCsosn">CSOSN (Simples Nacional)</label><input id="newFiscalCsosn" placeholder="Ex.: 102" autocomplete="off" maxlength="3"></div><div class="field"><label for="newFiscalCest">CEST (quando aplicável)</label><input id="newFiscalCest" placeholder="7 dígitos" autocomplete="off" maxlength="7"></div><div class="field"><label for="newFiscalOrigem">Origem da mercadoria</label><input id="newFiscalOrigem" placeholder="0 a 8" autocomplete="off" maxlength="1"></div><div class="field"><label for="newFiscalUTrib">Unidade tributável</label><input id="newFiscalUTrib" placeholder="KG ou UN" autocomplete="off" maxlength="2"></div><div class="field"><label for="newFiscalCstPis">CST PIS</label><input id="newFiscalCstPis" placeholder="2 dígitos" autocomplete="off" maxlength="2"></div><div class="field"><label for="newFiscalCstCofins">CST COFINS</label><input id="newFiscalCstCofins" placeholder="2 dígitos" autocomplete="off" maxlength="2"></div><div class="field"><label for="newFiscalCClassTrib">Classificação tributária IBS/CBS (quando exigida)</label><input id="newFiscalCClassTrib" placeholder="Código validado pelo contador" autocomplete="off" maxlength="16"></div></div></fieldset>
       <button id="saveProduct" class="button primary wide">Cadastrar produto</button>
     </section>
     <section class="panel catalog-panel">
       <div class="section-heading"><h2>Produtos cadastrados</h2><span id="productCount" class="pill">0 produtos</span></div>
       <div class="category-manager"><div class="field"><label for="newCategoryName">Criar nova aba de produtos</label><input id="newCategoryName" maxlength="40" placeholder="Ex.: Bebidas, Sobremesas"></div><button id="addCategory" class="button secondary" type="button">+ Criar aba</button></div><div id="catalogCategoryTabs" class="category-tabs" aria-label="Filtrar cadastro por aba"></div>
       <div class="field"><label for="catalogSearch">Pesquisar no cadastro</label><input id="catalogSearch" type="search" placeholder="Digite o nome do produto..."></div>
-      <div id="productCatalog" class="product-catalog"></div>
+      <div class="fiscal-bulk-panel" style="border:1px solid #5b4b4b;border-radius:12px;padding:16px;margin:14px 0"><h3>Preparar cadastro fiscal dos produtos</h3><p>Organiza os produtos por grupo operacional. Não altera preços, unidades, mesas, vendas ou códigos fiscais já existentes. A classificação tributária ainda exige validação do contador.</p><p id="fiscalPrepSummary" aria-live="polite"></p><button id="prepareFiscalProducts" class="button secondary" type="button">Preparar cadastro fiscal dos produtos</button><p><strong>Propostas tributárias (não validadas)</strong>: CFOP e CSOSN são hipóteses para conferência, armazenadas separadamente dos códigos fiscais usados na emissão. NCM, CEST, origem e PIS/COFINS não serão inventados.</p><button id="previewFiscalSuggestions" class="button secondary" type="button">Ver propostas dos 18 produtos</button> <button id="applyFiscalSuggestions" class="button secondary" type="button">Registrar propostas não validadas</button></div><div id="productCatalog" class="product-catalog"></div>
       <section id="editProductPanel" class="product-edit-panel" hidden aria-label="Editar produto">
         <h3>Editar produto cadastrado</h3>
         <p class="muted">As alterações serão usadas nos próximos lançamentos. Itens já lançados e vendas anteriores não serão modificados.</p>
         <div class="field"><label for="editProductName">Nome do produto</label><input id="editProductName" maxlength="120" autocomplete="off"></div>
         <div class="form-grid">
-          <div class="field"><label for="editProductPrice">Preço (R$)</label><input id="editProductPrice" type="number" min="0" step="0.01" inputmode="decimal"></div>
+          <div class="field"><label for="editProductPrice">Preço (R$)</label><input id="editProductPrice" type="text" inputmode="decimal" placeholder="Ex.: 59,90"></div>
           <div class="field"><label for="editProductUnit">Venda por</label><select id="editProductUnit"><option value="kg">Quilo</option><option value="un">Unidade</option></select></div><div class="field"><label for="editProductCategory">Aba</label><select id="editProductCategory"></select></div>
         </div>
+<fieldset class="fiscal-fields"><legend>Cadastro fiscal — NFC-e / Simples Nacional</legend><p class="muted">Os campos fiscais são opcionais para salvar o produto. Preencha posteriormente com códigos validados pelo contador; cadastro incompleto não está pronto para emissão.</p><div class="fiscal-grid"><div class="field"><label for="editFiscalNcm">NCM</label><input id="editFiscalNcm" placeholder="8 dígitos" autocomplete="off" maxlength="8"></div><div class="field"><label for="editFiscalCfop">CFOP</label><input id="editFiscalCfop" placeholder="4 dígitos" autocomplete="off" maxlength="4"></div><div class="field"><label for="editFiscalCsosn">CSOSN (Simples Nacional)</label><input id="editFiscalCsosn" placeholder="Ex.: 102" autocomplete="off" maxlength="3"></div><div class="field"><label for="editFiscalCest">CEST (quando aplicável)</label><input id="editFiscalCest" placeholder="7 dígitos" autocomplete="off" maxlength="7"></div><div class="field"><label for="editFiscalOrigem">Origem da mercadoria</label><input id="editFiscalOrigem" placeholder="0 a 8" autocomplete="off" maxlength="1"></div><div class="field"><label for="editFiscalUTrib">Unidade tributável</label><input id="editFiscalUTrib" placeholder="KG ou UN" autocomplete="off" maxlength="2"></div><div class="field"><label for="editFiscalCstPis">CST PIS</label><input id="editFiscalCstPis" placeholder="2 dígitos" autocomplete="off" maxlength="2"></div><div class="field"><label for="editFiscalCstCofins">CST COFINS</label><input id="editFiscalCstCofins" placeholder="2 dígitos" autocomplete="off" maxlength="2"></div><div class="field"><label for="editFiscalCClassTrib">Classificação tributária IBS/CBS (quando exigida)</label><input id="editFiscalCClassTrib" placeholder="Código validado pelo contador" autocomplete="off" maxlength="16"></div></div></fieldset>
         <div class="product-edit-actions"><button id="confirmEditProduct" type="button" class="button primary">Salvar alterações</button><button id="cancelEditProduct" type="button" class="button secondary">Cancelar</button></div>
       </section>
     </section>
@@ -175,6 +177,28 @@
       <button id="showHistory" class="button secondary wide">Resumo histórico</button>
       <button id="printLastSale" class="button secondary wide" type="button">🧾 Reimprimir última venda</button>
     </section>
+    <section class="panel" id="fiscalPanel">
+      <h2>Notas fiscais — NFC-e direta SEFAZ-MA</h2>
+      <p class="muted">Emissão exclusivamente manual. Comece pela homologação. Nenhuma venda é enviada automaticamente.</p>
+      <p class="muted">Servidor fiscal separado obrigatório. Certificado A1 e CSC nunca devem ficar no GitHub Pages. Esta etapa prepara rascunhos; NÃO transmite NFC-e.</p>
+      <div class="form-grid">
+        <div class="field"><label for="fiscalApiUrl">Endereço do servidor fiscal HTTPS</label><input id="fiscalApiUrl" placeholder="https://seu-servidor-fiscal.exemplo.com" autocomplete="off"></div>
+        <div class="field"><label for="fiscalSale">Venda para emissão</label><select id="fiscalSale"><option value="">Selecione uma venda fechada</option></select></div>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label for="fiscalCpf">CPF/CNPJ do consumidor (se aplicável)</label><input id="fiscalCpf" inputmode="numeric" maxlength="14" placeholder="Opcional"></div>
+        <div class="field"><label for="fiscalStatus">Situação fiscal</label><div id="fiscalStatus" class="muted">Nenhuma nota consultada.</div></div>
+      </div>
+      <p class="muted">Informe os dados fiscais validados pelo contador. O servidor verifica a venda na nuvem e salva um rascunho seguro. Transmissão desabilitada até homologação completa.</p>
+      <div class="field"><label for="fiscalPayload">Dados fiscais do rascunho (JSON, sem dados secretos)</label><textarea id="fiscalPayload" rows="9" spellcheck="false" placeholder='{"natureza_operacao":"VENDA", "itens":[...], "formas_pagamento":[...]}'></textarea></div>
+      <div class="button-row"><button type="button" class="button secondary" id="fiscalConsult">Consultar rascunho</button><button type="button" class="button primary" id="fiscalIssue">Salvar rascunho fiscal (NÃO emite)</button></div>
+      <div class="button-row">
+  <button type="button" class="button secondary" id="fiscalXmlPreview">
+    Visualizar XML de teste
+  </button>
+</div>
+      <pre id="fiscalResult" class="fiscal-result" aria-live="polite"></pre>
+    </section>
     <section class="panel" id="cloudCashReports">
       <h2>Caixas registrados na nuvem</h2>
       <p class="muted">Consulte aberturas e fechamentos sem imprimir. Os registros são sincronizados pelo Firebase quando a conexão estiver ativa.</p>
@@ -187,6 +211,16 @@
       <div id="cloudCashReportDetail" class="cloud-cash-detail" hidden></div>
     </section>
   </section>
+  
+<button
+  type="button"
+  id="btnTesteFiscal"
+  style="margin:16px;padding:12px"
+>
+  Testar conexão fiscal
+</button>
+<p id="resultadoTesteFiscal"></p>
+
 </main>
 <footer>Dados na nuvem pelo Firebase. Faça backups e valide a compatibilidade da balança antes de usar no caixa real.</footer>
 <script type="module">
@@ -197,7 +231,93 @@
   window.dispatchEvent(new Event('firebase-modules-ready'));
 </script>
 <script src="firebase-config.js"></script>
-<script src="script.js"></script>
+
 <script src="install-app.js" defer></script>
+
+
+<!-- JANELA DE PAGAMENTO DO ESPAÇO DA PICANHA -->
+<div id="janelaPagamento" class="pagamento-overlay" hidden>
+  <div class="pagamento-modal"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="tituloPagamento">
+
+    <div class="pagamento-cabecalho">
+      <h2 id="tituloPagamento">Finalizar conta</h2>
+      <button id="fecharJanelaPagamento"
+              type="button">✕</button>
+    </div>
+
+   <h3>Formas de pagamento</h3>
+
+<div class="pagamento-opcoes">
+  <button type="button" data-pagamento="Pix">
+    <span class="icone-pagamento">◆</span>
+    <span>Pix</span>
+  </button>
+
+  <button type="button" data-pagamento="Dinheiro">
+    <span class="icone-pagamento">💵</span>
+    <span>Dinheiro</span>
+  </button>
+
+  <button type="button" data-pagamento="Cartão de Crédito">
+    <span class="icone-pagamento">💳</span>
+    <span>Crédito</span>
+  </button>
+
+  <button type="button" data-pagamento="Cartão de Débito">
+    <span class="icone-pagamento">💳</span>
+    <span>Débito</span>
+  </button>
+</div>
+
+<label for="valorJanelaPagamento">
+  Valor do pagamento (R$)
+</label>
+
+    <input id="valorJanelaPagamento"
+           type="number"
+           min="0.01"
+           step="0.01">
+
+    <button id="adicionarPagamentoJanela"
+            type="button">
+      + Adicionar pagamento
+    </button>
+
+    <h3>Resumo da conta</h3>
+
+    <div class="pagamento-resumo">
+      <p>Total:
+        <strong id="modalTotal">R$ 0,00</strong>
+      </p>
+
+      <p>Pago:
+        <strong id="modalPago">R$ 0,00</strong>
+      </p>
+
+      <p>Restante:
+        <strong id="modalRestante">R$ 0,00</strong>
+      </p>
+    </div>
+
+    <div id="modalPagamentosAdicionados"></div>
+
+    <button id="confirmarFechamentoMesa"
+            type="button">
+      Confirmar e fechar mesa
+    </button>
+
+  </div>
+</div>
+<!-- FIM DA JANELA DE PAGAMENTO -->
+<!-- Aqui termina a janela de pagamento -->
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
+</body>
+</html>
+
