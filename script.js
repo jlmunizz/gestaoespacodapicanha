@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 function gerarIdProduto() {
   return crypto.randomUUID();
 }
@@ -162,9 +162,9 @@ async function consultarNumeracaoFiscal() {
   const token = await cloudUser.getIdToken();
 
   const resposta = await fetch(
-    'http://localhost:3001/api/fiscal/numeracao-teste',
-    {
-      method: 'GET',
+  fiscalUrl() + '/api/fiscal/numeracao-teste',
+  {
+    method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`
       }
@@ -1644,7 +1644,7 @@ function renderFiscalSales(){
 
 
 function fiscalUrl() {
-  return 'http://localhost:3001';
+  return 'https://espaco-picanha-servidor-fiscal.onrender.com';
 }
 
 function prepararItensFiscaisAutomaticos(sale) {
