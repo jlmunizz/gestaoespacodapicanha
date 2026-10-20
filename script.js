@@ -90,9 +90,23 @@ async function enterCloudApp(user){
   cloudStatus('Carregando dados…');
   try{
     cloudDocRef=cloudClient.doc(cloudClient.db,'restaurantes',user.uid);
-    const snapshot=await cloudClient.getDoc(cloudDocRef);
-    if(snapshot.exists())applySnapshot(snapshot.data().state);
-    else await cloudClient.setDoc(cloudDocRef,{state:JSON.parse(JSON.stringify(localSnapshot())),updatedAt:cloudClient.serverTimestamp()});
+    console.log('FIRESTORE: iniciando leitura');
+const snapshot=await cloudClient.getDoc(cloudDocRef);
+console.log('FIRESTORE: leitura concluída');
+
+console.log('FIRESTORE: iniciando processamento');
+
+if (snapshot.exists()) {
+  applySnapshot(snapshot.data().state);
+} else {
+  await cloudClient.setDoc(cloudDocRef, {
+    state: JSON.parse(JSON.stringify(localSnapshot())),
+    updatedAt: cloudClient.serverTimestamp()
+  });
+}
+
+console.log('FIRESTORE: processamento concluído');
+
     cloudReady=true;render();cloudStatus('Sincronizado na nuvem',true);
     cloudUnsubscribe=cloudClient.onSnapshot(cloudDocRef,doc=>{
       if(!doc.exists()||!cloudReady||cloudWriting||cloudSaveTimer)return;
@@ -216,7 +230,157 @@ function renderProducts(){
   const quickProducts=$('quickProducts');
   if(quickProducts){
     quickProducts.innerHTML=visible.length?visible.map(p=>`<button type="button" class="quick-product" data-quick-product="${p.index}" title="Clique para lançar ${esc(p.name)} com quantidade 1"><span><span class="quick-name">${esc(p.name)}</span><span class="quick-price">${money(p.price)}${p.unit==='kg'?' / kg':' / un.'}</span></span><span class="quick-plus" aria-hidden="true">+</span></button>`).join(''):'<div class="quick-empty">Nenhum produto encontrado. Cadastre o produto na aba Produtos cadastrados.</div>';
-    quickProducts.querySelectorAll('[data-quick-product]').forEach(button=>button.addEventListener('click',()=>addProductDirect(Number(button.dataset.quickProduct))));
+    
+
+
+quickProducts.querySelectorAll('[data-quick-product]').forEach(button => {
+  button.addEventListener('click', () => {
+    const indice = Number(button.dataset.quickProduct);
+    const produto = products[indice];
+
+    if (!produto) return;
+
+    if (selectedTableId === null || !table()) {
+      alert('Abra uma mesa primeiro.');
+      return;
+    }
+
+    // Produtos por quilo continuam como antes.
+    if (produto.unit === 'kg') {
+      addProductDirect(indice);
+      return;
+    }
+
+    // Remove eventual janela anterior.
+    document.getElementById('modalQuantidadeProduto')?.remove();
+
+    let quantidade = 1;
+    const preco = Number(produto.price) || 0;
+
+    const fundo = document.createElement('div');
+    fundo.id = 'modalQuantidadeProduto';
+    fundo.style.cssText = `
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.8);
+      z-index:99999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+    `;
+
+    fundo.innerHTML = `
+      <div style="
+        background:#181818;
+        color:white;
+        width:100%;
+        max-width:390px;
+        padding:25px;
+        border:1px solid #e50920;
+        border-radius:15px;
+        box-sizing:border-box;
+      ">
+        <h2 style="margin:0 0 18px;color:#ff404a">
+          Adicionar produto
+        </h2>
+
+        <h3 id="modalQtdNome"></h3>
+
+        <p id="modalQtdPreco" style="color:#aaa"></p>
+
+        <div style="
+          display:flex;
+          justify-content:center;
+          align-items:center;
+          gap:25px;
+          margin:25px 0;
+        ">
+          <button id="qtdMenos" type="button"
+            style="padding:12px 20px;font-size:24px">
+            −
+          </button>
+
+          <strong id="qtdNumero"
+            style="font-size:32px;min-width:45px;text-align:center">
+            1
+          </strong>
+
+          <button id="qtdMais" type="button"
+            style="padding:12px 20px;font-size:24px">
+            +
+          </button>
+        </div>
+
+        <p style="display:flex;justify-content:space-between">
+          <strong>Total:</strong>
+          <strong id="qtdTotal" style="color:#ff404a"></strong>
+        </p>
+
+        <div style="display:flex;gap:10px;margin-top:25px">
+          <button id="qtdCancelar" type="button"
+            style="flex:1;padding:12px">
+            Cancelar
+          </button>
+
+          <button id="qtdConfirmar" type="button"
+            style="
+              flex:1;
+              padding:12px;
+              background:#c81020;
+              color:white;
+              border:0;
+              border-radius:7px;
+              font-weight:bold;
+              cursor:pointer;
+            ">
+            Adicionar à mesa
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(fundo);
+
+    const campo = id => fundo.querySelector('#' + id);
+
+    campo('modalQtdNome').textContent = produto.name;
+
+    campo('modalQtdPreco').textContent =
+      money(preco) + ' por unidade';
+
+    function atualizarQuantidade() {
+      campo('qtdNumero').textContent = quantidade;
+      campo('qtdTotal').textContent = money(preco * quantidade);
+      campo('qtdMenos').disabled = quantidade <= 1;
+    }
+
+    campo('qtdMenos').onclick = () => {
+      quantidade = Math.max(1, quantidade - 1);
+      atualizarQuantidade();
+    };
+
+    campo('qtdMais').onclick = () => {
+      quantidade++;
+      atualizarQuantidade();
+    };
+
+    campo('qtdCancelar').onclick = () => fundo.remove();
+
+    campo('qtdConfirmar').onclick = () => {
+      addProductDirect(indice, quantidade);
+      fundo.remove();
+    };
+
+    fundo.addEventListener('click', evento => {
+      if (evento.target === fundo) fundo.remove();
+    });
+
+    atualizarQuantidade();
+  });
+});
+
+
   }
   if(!visible.length){
     select.innerHTML='<option value="">Nenhum produto encontrado</option>';
@@ -672,23 +836,48 @@ $('product').addEventListener('change',updateProductFields);
 $('unit').addEventListener('change',updateUnit);
 $('quantity').addEventListener('input',updateCalculation);
 $('price').addEventListener('input',updateCalculation);
-function addProductDirect(productIndex){
-  if(selectedTableId===null||!table()) { alert('Clique em uma mesa antes de lançar produtos.'); return; }
-  const p=products[productIndex];
-  if(!p){alert('Produto não encontrado.');return;}
-  // Um clique lança uma unidade ou 1 kg; a quantidade pode ser ajustada manualmente no formulário abaixo.
-  const quantity=1,price=Number(p.price)||0,unit=p.unit==='kg'?'kg':'un';
- table().items.push({
-  productId: p.id || null,
-  name: p.name,
-  price,
-  unit,
-  quantity,
-  total: Math.round(price * quantity * 100) / 100,
-  createdAt: new Date().toISOString()
-});
-  save();render();resetToLunchKg();updateCalculation();
+
+function addProductDirect(productIndex, quantidadeEscolhida = 1) {
+  if (selectedTableId === null || !table()) {
+    alert('Clique em uma mesa antes de lançar produtos.');
+    return;
+  }
+
+  const p = products[productIndex];
+  if (!p) {
+    alert('Produto não encontrado.');
+    return;
+  }
+
+  const price = Number(p.price) || 0;
+  const unit = p.unit === 'kg' ? 'kg' : 'un';
+
+  let quantity = 1;
+
+if (unit === 'un') {
+  quantity = Number(quantidadeEscolhida);
+
+  if (!Number.isSafeInteger(quantity) || quantity < 1) {
+    alert('Quantidade inválida.');
+    return;
+  }
 }
+table().items.push({
+    productId: p.id || null,
+    name: p.name,
+    price,
+    unit,
+    quantity,
+    total: Math.round(price * quantity * 100) / 100,
+    createdAt: new Date().toISOString()
+  });
+
+  save();
+  render();
+  resetToLunchKg();
+  updateCalculation();
+}
+
 function launchManualProduct(){
   if(selectedTableId===null||!table()){alert('Clique em uma mesa antes de lançar produtos.');return;}
   const p=products[Number($('product').value)];
@@ -2001,5 +2190,218 @@ async function prepararFiscalAoFecharMesa(venda, indice) {
   );
 }
 
+
+/* ===== TRANSFERENCIA DE MESAS ===== */
+(() => {
+  const escapar = valor => String(valor).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;',
+    '"': '&quot;', "'": '&#39;'
+  }[c]));
+
+  const arredondar = n => Math.round((n + Number.EPSILON) * 100) / 100;
+
+  function abrirTransferencia() {
+    const origem = tables.find(t => t.id === selectedTableId);
+
+    if (!origem || !origem.items.length) {
+      alert('Abra uma mesa com produtos para transferir.');
+      return;
+    }
+
+    if (typeof pendingPayments !== 'undefined' &&
+        pendingPayments.length > 0) {
+      alert('Cancele os pagamentos parciais pendentes antes de transferir.');
+      return;
+    }
+
+    document.getElementById('janelaTransferencia')?.remove();
+
+    const fundo = document.createElement('div');
+    fundo.id = 'janelaTransferencia';
+    fundo.style.cssText = 'position:fixed;inset:0;background:#0009;z-index:99999;display:flex;align-items:center;justify-content:center;padding:15px';
+
+    fundo.innerHTML = `
+      <div style="background:white;color:#222;width:100%;max-width:550px;max-height:90vh;overflow:auto;border-radius:12px;padding:22px">
+        <h2>⇄ Transferir mesa / itens</h2>
+        <p><strong>Origem:</strong> Mesa ${origem.id}</p>
+
+        <label><strong>Mesa de destino:</strong></label>
+        <select id="transferirDestino"
+          style="width:100%;padding:12px;margin:8px 0 18px">
+          <option value="">Selecione a mesa</option>
+          ${tables.filter(t => t.id !== origem.id).map(t =>
+            `<option value="${t.id}">Mesa ${t.id} - ${t.items.length ? 'Ocupada' : 'Livre'}</option>`
+          ).join('')}
+        </select>
+
+        <label style="display:block;margin-bottom:12px">
+          <input type="radio" name="tipoTransferencia" value="tudo" checked>
+          Transferir mesa inteira
+        </label>
+
+        <label style="display:block;margin-bottom:14px">
+          <input type="radio" name="tipoTransferencia" value="itens">
+          Escolher produtos e quantidades
+        </label>
+
+        <div id="transferirLista" hidden
+          style="border:1px solid #ddd;border-radius:8px;padding:12px">
+          ${origem.items.map((item, indice) => `
+            <div style="border-bottom:1px solid #eee;padding:10px 0">
+              <label>
+                <input type="checkbox" class="transferirItem"
+                  data-indice="${indice}">
+                <strong>${escapar(item.name)}</strong>
+              </label>
+              <div style="margin-top:7px">
+                Disponível: ${item.quantity} ${item.unit === 'kg' ? 'kg' : 'un.'}
+              </div>
+              <input class="transferirQuantidade"
+                data-indice="${indice}"
+                type="number"
+                min="${item.unit === 'kg' ? '0.001' : '1'}"
+                max="${item.quantity}"
+                step="${item.unit === 'kg' ? '0.001' : '1'}"
+                value="${item.quantity}"
+                style="width:120px;padding:8px;margin-top:6px">
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:22px;flex-wrap:wrap">
+          <button id="confirmarTransferencia" type="button"
+            style="background:#16803c;color:white;border:0;padding:12px;border-radius:7px;cursor:pointer">
+            Confirmar transferência
+          </button>
+          <button id="cancelarTransferencia" type="button"
+            style="padding:12px;border:1px solid #ccc;border-radius:7px;cursor:pointer">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(fundo);
+
+    const campo = id => fundo.querySelector('#' + id);
+
+    fundo.querySelectorAll('[name="tipoTransferencia"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        campo('transferirLista').hidden =
+          fundo.querySelector('[name="tipoTransferencia"]:checked').value !== 'itens';
+      });
+    });
+
+    campo('cancelarTransferencia').onclick = () => fundo.remove();
+
+    campo('confirmarTransferencia').onclick = () => {
+      const destinoId = Number(campo('transferirDestino').value);
+      const destino = tables.find(t => t.id === destinoId);
+
+      if (!destino || destino.id === origem.id) {
+        alert('Selecione uma mesa de destino válida.');
+        return;
+      }
+
+      const modo = fundo.querySelector('[name="tipoTransferencia"]:checked').value;
+      const movimentacoes = [];
+
+      if (modo === 'tudo') {
+        origem.items.forEach((item, indice) => {
+          movimentacoes.push({ indice, quantidade: Number(item.quantity) });
+        });
+      } else {
+        const marcados = fundo.querySelectorAll('.transferirItem:checked');
+
+        if (!marcados.length) {
+          alert('Selecione pelo menos um produto.');
+          return;
+        }
+
+        for (const marcado of marcados) {
+          const indice = Number(marcado.dataset.indice);
+          const item = origem.items[indice];
+          const campoQtd = fundo.querySelector(
+            `.transferirQuantidade[data-indice="${indice}"]`
+          );
+          const qtd = Number(campoQtd.value);
+          const atual = Number(item.quantity);
+          const fator = item.unit === 'kg' ? 1000 : 1;
+
+          if (!Number.isFinite(qtd) || qtd <= 0 ||
+              Math.abs(qtd * fator - Math.round(qtd * fator)) > 0.000001 ||
+              Math.round(qtd * fator) > Math.round(atual * fator)) {
+            alert('Quantidade inválida para: ' + item.name);
+            return;
+          }
+
+          movimentacoes.push({ indice, quantidade: qtd });
+        }
+      }
+
+      const destinoOcupado = destino.items.length > 0;
+
+      if (!confirm(
+        `Transferir da Mesa ${origem.id} para a Mesa ${destino.id}?\n` +
+        (destinoOcupado
+          ? 'A mesa de destino está ocupada. Os itens serão acrescentados.'
+          : 'A mesa de destino está livre.')
+      )) return;
+
+      const backupOrigem = structuredClone(origem.items);
+      const backupDestino = structuredClone(destino.items);
+
+      try {
+        movimentacoes.sort((a, b) => b.indice - a.indice);
+
+        for (const movimento of movimentacoes) {
+          const item = origem.items[movimento.indice];
+          const atual = Number(item.quantity);
+          const fator = item.unit === 'kg' ? 1000 : 1;
+          const qtdAtual = Math.round(atual * fator);
+          const qtdMover = Math.round(movimento.quantidade * fator);
+
+          if (qtdMover === qtdAtual) {
+            destino.items.push({ ...item });
+            origem.items.splice(movimento.indice, 1);
+          } else {
+            const totalCentavos = Math.round(Number(item.total) * 100);
+            const moverCentavos = Math.round(
+              totalCentavos * qtdMover / qtdAtual
+            );
+
+            destino.items.push({
+              ...item,
+              quantity: qtdMover / fator,
+              total: arredondar(moverCentavos / 100)
+            });
+
+            item.quantity = (qtdAtual - qtdMover) / fator;
+            item.total = arredondar(
+              (totalCentavos - moverCentavos) / 100
+            );
+          }
+        }
+
+        save();
+        fundo.remove();
+        render();
+        alert('Transferência realizada com sucesso!');
+      } catch (erro) {
+        origem.items = backupOrigem;
+        destino.items = backupDestino;
+        console.error('Erro na transferência:', erro);
+        alert('A transferência não foi concluída.');
+      }
+    };
+  }
+
+  document.addEventListener('click', evento => {
+    if (evento.target.closest('#openTransferModal')) {
+      abrirTransferencia();
+    }
+  });
+})();
+/* ===== FIM TRANSFERENCIA DE MESAS ===== */
 
 
